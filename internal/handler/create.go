@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 func (h *handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
@@ -34,7 +35,8 @@ func (h *handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 	u := string(body)
 
 	uParsed, err := url.Parse(u)
-	if err != nil || uParsed == nil {
+	if err != nil || uParsed == nil ||
+		(!strings.HasPrefix(u, "http://") && !strings.HasPrefix(u, "https://")) {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("url not correct"))
 

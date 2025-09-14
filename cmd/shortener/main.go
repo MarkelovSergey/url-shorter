@@ -12,7 +12,7 @@ func main() {
 	urlShorterRepo := urlshorterrepository.New()
 	urlShorterService := urlshorterservice.New(urlShorterRepo)
 
-	handler := handler.New(*urlShorterService)
+	handler := handler.New(urlShorterService)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handler.CreateHandler)

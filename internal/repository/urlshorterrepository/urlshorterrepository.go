@@ -2,25 +2,30 @@ package urlshorterrepository
 
 import "sync"
 
-type URLShorterRepository struct {
+type URLShorterRepository interface {
+	Add(string, string)
+	Find(string) *string
+}
+
+type urlShorterRepository struct {
 	urls map[string]string
 	mu   sync.RWMutex
 }
 
-func New() *URLShorterRepository {
-	return &URLShorterRepository{
+func New() URLShorterRepository {
+	return &urlShorterRepository{
 		urls: make(map[string]string),
 	}
 }
 
-func (r *URLShorterRepository) Add(shortCode string, url string) {
+func (r *urlShorterRepository) Add(shortCode string, url string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	r.urls[shortCode] = url
 }
 
-func (r *URLShorterRepository) Find(shortCode string) *string {
+func (r *urlShorterRepository) Find(shortCode string) *string {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 

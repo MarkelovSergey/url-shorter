@@ -9,15 +9,24 @@ import (
 
 const shortCodeLength = 8
 
-type URLShorterService struct {
-	urlShorterRepo *urlshorterrepository.URLShorterRepository
+type URLShorterService interface {
+	GetOriginalURL(id string) *string
+	Generate(url string) string
 }
 
-func New(urlShorterRepo *urlshorterrepository.URLShorterRepository) *URLShorterService {
-	return &URLShorterService{urlShorterRepo}
+type urlShorterService struct {
+	urlShorterRepo urlshorterrepository.URLShorterRepository
 }
 
-func (s *URLShorterService) Generate(url string) string {
+func New(urlShorterRepo urlshorterrepository.URLShorterRepository) URLShorterService {
+	return &urlShorterService{urlShorterRepo}
+}
+
+func (s *urlShorterService) GetOriginalURL(shortCode string) *string {
+	return s.urlShorterRepo.Find(shortCode)
+}
+
+func (s *urlShorterService) Generate(url string) string {
 	hash := sha256.Sum256([]byte(url))
 	encoded := base64.URLEncoding.EncodeToString(hash[:shortCodeLength])
 	shortCode := encoded[:shortCodeLength]
@@ -28,8 +37,4 @@ func (s *URLShorterService) Generate(url string) string {
 	}
 
 	return shortCode
-}
-
-func (s *URLShorterService) GetOriginalURL(shortCode string) *string {
-	return s.urlShorterRepo.Find(shortCode)
 }
