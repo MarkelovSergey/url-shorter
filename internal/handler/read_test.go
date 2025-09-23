@@ -32,14 +32,6 @@ func TestReadHandler(t *testing.T) {
 			expectedURL:    originalURL,
 		},
 		{
-			name:           "Invalid HTTP method",
-			method:         http.MethodPost,
-			path:           "/" + shortID,
-			mockSetup:      func(m *MockURLShorterService) {},
-			expectedStatus: http.StatusBadRequest,
-			expectedBody:   "method not allowed",
-		},
-		{
 			name:           "Invalid path format",
 			method:         http.MethodGet,
 			path:           "/some/invalid/path",

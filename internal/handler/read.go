@@ -6,13 +6,6 @@ import (
 )
 
 func (h *handler) ReadHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("method not allowed"))
-
-		return
-	}
-
 	path := r.URL.Path
 	parts := strings.Split(path, "/")
 

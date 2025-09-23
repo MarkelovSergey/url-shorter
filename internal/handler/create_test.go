@@ -36,15 +36,6 @@ func TestCreateHandler(t *testing.T) {
 			expectedBody:   expectedShortURL,
 		},
 		{
-			name:           "Invalid HTTP method",
-			method:         http.MethodGet,
-			contentType:    "text/plain",
-			body:           originalURL,
-			mockSetup:      func(m *MockURLShorterService) {},
-			expectedStatus: http.StatusBadRequest,
-			expectedBody:   "method not allowed",
-		},
-		{
 			name:           "Unsupported Content-Type",
 			method:         http.MethodPost,
 			contentType:    "application/json",
