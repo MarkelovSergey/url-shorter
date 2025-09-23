@@ -5,10 +5,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/MarkelovSergey/url-shorter/config"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestReadHandler(t *testing.T) {
+	config := *config.New("http://localhost:8080", "http://localhost:8080")
 	originalURL := "https://practicum.yandex.ru"
 	shortID := "test"
 
@@ -59,7 +61,7 @@ func TestReadHandler(t *testing.T) {
 			req := httptest.NewRequest(test.method, test.path, nil)
 			w := httptest.NewRecorder()
 
-			h := New(mockService)
+			h := New(config, mockService)
 			h.ReadHandler(w, req)
 
 			assert.Equal(t, test.expectedStatus, w.Code)

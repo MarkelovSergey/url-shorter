@@ -37,7 +37,7 @@ func (h *handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	us := h.urlShorterService.Generate(u)
-	shortURL := fmt.Sprintf("http://%v/%v", r.Host, us)
+	shortURL := fmt.Sprintf("%v/%v", h.config.BaseURL, us)
 
 	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte(shortURL))

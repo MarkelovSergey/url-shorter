@@ -1,19 +1,21 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/MarkelovSergey/url-shorter/config"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestCreateHandler(t *testing.T) {
+	config := *config.New("http://localhost:8080", "http://localhost:8080")
 	originalURL := "https://practicum.yandex.ru"
 	shortID := "test"
-	host := "localhost:8080"
-	expectedShortURL := "http://" + host + "/" + shortID
+	expectedShortURL := fmt.Sprintf("%v/%v", config.ServerAddress, shortID)
 
 	tests := []struct {
 		name           string
@@ -69,11 +71,11 @@ func TestCreateHandler(t *testing.T) {
 			mockService := new(MockURLShorterService)
 			test.mockSetup(mockService)
 
-			req := httptest.NewRequest(test.method, "http://"+host, strings.NewReader(test.body))
+			req := httptest.NewRequest(test.method, config.ServerAddress, strings.NewReader(test.body))
 			req.Header.Set("Content-Type", test.contentType)
 			w := httptest.NewRecorder()
 
-			h := New(mockService)
+			h := New(config, mockService)
 			h.CreateHandler(w, req)
 
 			assert.Equal(t, test.expectedStatus, w.Code)
