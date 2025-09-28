@@ -1,6 +1,8 @@
 package urlshorterrepository
 
-import "sync"
+import (
+	"sync"
+)
 
 type URLShorterRepository interface {
 	Add(string, string)
@@ -9,12 +11,13 @@ type URLShorterRepository interface {
 
 type urlShorterRepository struct {
 	urls map[string]string
-	mu   sync.RWMutex
+	mu   *sync.Mutex
 }
 
 func New() URLShorterRepository {
 	return &urlShorterRepository{
 		urls: make(map[string]string),
+		mu:   &sync.Mutex{},
 	}
 }
 
@@ -26,8 +29,8 @@ func (r *urlShorterRepository) Add(shortCode string, url string) {
 }
 
 func (r *urlShorterRepository) Find(shortCode string) *string {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
 	v, ok := r.urls[shortCode]
 	if !ok {

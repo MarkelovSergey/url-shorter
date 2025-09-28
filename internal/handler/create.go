@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -37,7 +36,13 @@ func (h *handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	us := h.urlShorterService.Generate(u)
-	shortURL := fmt.Sprintf("%v/%v", h.config.BaseURL, us)
+	shortURL, err := url.JoinPath(h.config.BaseURL, us)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("invalid URL format"))
+
+		return
+	}
 
 	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte(shortURL))

@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"github.com/MarkelovSergey/url-shorter/config"
+	"github.com/MarkelovSergey/url-shorter/internal/config"
 	"github.com/MarkelovSergey/url-shorter/internal/service/urlshorterservice"
 )
 

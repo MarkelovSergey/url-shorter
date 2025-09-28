@@ -5,20 +5,24 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/MarkelovSergey/url-shorter/config"
+	"github.com/MarkelovSergey/url-shorter/internal/config"
+	"github.com/MarkelovSergey/url-shorter/internal/service/urlshorterservice"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestReadHandler(t *testing.T) {
-	config := *config.New("http://localhost:8080", "http://localhost:8080")
-	originalURL := "https://practicum.yandex.ru"
+	cfg := *config.New("http://localhost:8080", "http://localhost:8080")
+	originalURL := "https://practicum.yandex.ru" // убраны лишние пробелы
 	shortID := "test"
+
+	// Вспомогательная функция для *string
+	ptr := func(s string) *string { return &s }
 
 	tests := []struct {
 		name           string
 		method         string
 		path           string
-		mockSetup      func(*MockURLShorterService)
+		mockSetup      func(*urlshorterservice.MockURLShorterService)
 		expectedStatus int
 		expectedBody   string
 		expectedURL    string
@@ -27,8 +31,8 @@ func TestReadHandler(t *testing.T) {
 			name:   "successful redirection",
 			method: http.MethodGet,
 			path:   "/" + shortID,
-			mockSetup: func(m *MockURLShorterService) {
-				m.On(urlShorterServiceGetOriginalURL, shortID).Return(originalURL)
+			mockSetup: func(m *urlshorterservice.MockURLShorterService) {
+				m.EXPECT().GetOriginalURL(shortID).Return(ptr(originalURL))
 			},
 			expectedStatus: http.StatusTemporaryRedirect,
 			expectedURL:    originalURL,
@@ -37,7 +41,7 @@ func TestReadHandler(t *testing.T) {
 			name:           "Invalid path format",
 			method:         http.MethodGet,
 			path:           "/some/invalid/path",
-			mockSetup:      func(m *MockURLShorterService) {},
+			mockSetup:      func(m *urlshorterservice.MockURLShorterService) {},
 			expectedStatus: http.StatusBadRequest,
 			expectedBody:   "ID not found",
 		},
@@ -45,8 +49,8 @@ func TestReadHandler(t *testing.T) {
 			name:   "ID not found",
 			method: http.MethodGet,
 			path:   "/" + shortID,
-			mockSetup: func(m *MockURLShorterService) {
-				m.On(urlShorterServiceGetOriginalURL, shortID).Return(nil)
+			mockSetup: func(m *urlshorterservice.MockURLShorterService) {
+				m.On("GetOriginalURL", shortID).Return((*string)(nil))
 			},
 			expectedStatus: http.StatusBadRequest,
 			expectedBody:   "ID not found",
@@ -55,13 +59,14 @@ func TestReadHandler(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			mockService := new(MockURLShorterService)
+			// Используем new() — или можно использовать NewMockURLShorterService(t)
+			mockService := new(urlshorterservice.MockURLShorterService)
 			test.mockSetup(mockService)
 
 			req := httptest.NewRequest(test.method, test.path, nil)
 			w := httptest.NewRecorder()
 
-			h := New(config, mockService)
+			h := New(cfg, mockService)
 			h.ReadHandler(w, req)
 
 			assert.Equal(t, test.expectedStatus, w.Code)

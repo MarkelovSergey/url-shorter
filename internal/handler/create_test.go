@@ -1,13 +1,14 @@
 package handler
 
 import (
-	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
-	"github.com/MarkelovSergey/url-shorter/config"
+	"github.com/MarkelovSergey/url-shorter/internal/config"
+	"github.com/MarkelovSergey/url-shorter/internal/service/urlshorterservice"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -15,14 +16,18 @@ func TestCreateHandler(t *testing.T) {
 	config := *config.New("http://localhost:8080", "http://localhost:8080")
 	originalURL := "https://practicum.yandex.ru"
 	shortID := "test"
-	expectedShortURL := fmt.Sprintf("%v/%v", config.ServerAddress, shortID)
+
+	expectedShortURL, err := url.JoinPath(config.BaseURL, shortID)
+	if err != nil {
+		t.Fatalf("Failed to join URL paths: %v", err)
+	}
 
 	tests := []struct {
 		name           string
 		method         string
 		contentType    string
 		body           string
-		mockSetup      func(*MockURLShorterService)
+		mockSetup      func(*urlshorterservice.MockURLShorterService)
 		expectedStatus int
 		expectedBody   string
 	}{
@@ -31,8 +36,8 @@ func TestCreateHandler(t *testing.T) {
 			method:      http.MethodPost,
 			contentType: "text/plain",
 			body:        originalURL,
-			mockSetup: func(m *MockURLShorterService) {
-				m.On(urlShorterServiceGenerate, originalURL).Return(shortID)
+			mockSetup: func(m *urlshorterservice.MockURLShorterService) {
+				m.EXPECT().Generate(originalURL).Return(shortID)
 			},
 			expectedStatus: http.StatusCreated,
 			expectedBody:   expectedShortURL,
@@ -42,7 +47,7 @@ func TestCreateHandler(t *testing.T) {
 			method:         http.MethodPost,
 			contentType:    "application/json",
 			body:           originalURL,
-			mockSetup:      func(m *MockURLShorterService) {},
+			mockSetup:      func(m *urlshorterservice.MockURLShorterService) {},
 			expectedStatus: http.StatusBadRequest,
 			expectedBody:   "unsupported media type",
 		},
@@ -51,7 +56,7 @@ func TestCreateHandler(t *testing.T) {
 			method:         http.MethodPost,
 			contentType:    "text/plain",
 			body:           "not-a-url",
-			mockSetup:      func(m *MockURLShorterService) {},
+			mockSetup:      func(m *urlshorterservice.MockURLShorterService) {},
 			expectedStatus: http.StatusBadRequest,
 			expectedBody:   "url not correct",
 		},
@@ -60,7 +65,7 @@ func TestCreateHandler(t *testing.T) {
 			method:         http.MethodPost,
 			contentType:    "text/plain",
 			body:           "practicum.yandex.ru",
-			mockSetup:      func(m *MockURLShorterService) {},
+			mockSetup:      func(m *urlshorterservice.MockURLShorterService) {},
 			expectedStatus: http.StatusBadRequest,
 			expectedBody:   "url not correct",
 		},
@@ -68,7 +73,7 @@ func TestCreateHandler(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			mockService := new(MockURLShorterService)
+			mockService := new(urlshorterservice.MockURLShorterService)
 			test.mockSetup(mockService)
 
 			req := httptest.NewRequest(test.method, config.ServerAddress, strings.NewReader(test.body))
