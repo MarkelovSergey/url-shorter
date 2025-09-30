@@ -61,6 +61,6 @@ func (a *App) Run() error {
 	}
 
 	log.Println("Server exited gracefully")
-	
+
 	return nil
 }

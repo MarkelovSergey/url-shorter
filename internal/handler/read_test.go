@@ -6,17 +6,15 @@ import (
 	"testing"
 
 	"github.com/MarkelovSergey/url-shorter/internal/config"
+	"github.com/MarkelovSergey/url-shorter/internal/service"
 	"github.com/MarkelovSergey/url-shorter/internal/service/urlshorterservice"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestReadHandler(t *testing.T) {
 	cfg := *config.New("http://localhost:8080", "http://localhost:8080")
-	originalURL := "https://practicum.yandex.ru" // убраны лишние пробелы
+	originalURL := "https://practicum.yandex.ru"
 	shortID := "test"
-
-	// Вспомогательная функция для *string
-	ptr := func(s string) *string { return &s }
 
 	tests := []struct {
 		name           string
@@ -32,7 +30,7 @@ func TestReadHandler(t *testing.T) {
 			method: http.MethodGet,
 			path:   "/" + shortID,
 			mockSetup: func(m *urlshorterservice.MockURLShorterService) {
-				m.EXPECT().GetOriginalURL(shortID).Return(ptr(originalURL))
+				m.EXPECT().GetOriginalURL(shortID).Return(originalURL, nil)
 			},
 			expectedStatus: http.StatusTemporaryRedirect,
 			expectedURL:    originalURL,
@@ -50,7 +48,7 @@ func TestReadHandler(t *testing.T) {
 			method: http.MethodGet,
 			path:   "/" + shortID,
 			mockSetup: func(m *urlshorterservice.MockURLShorterService) {
-				m.On("GetOriginalURL", shortID).Return((*string)(nil))
+				m.EXPECT().GetOriginalURL(shortID).Return("", service.ErrFindShortCode)
 			},
 			expectedStatus: http.StatusBadRequest,
 			expectedBody:   "ID not found",
@@ -59,7 +57,6 @@ func TestReadHandler(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			// Используем new() — или можно использовать NewMockURLShorterService(t)
 			mockService := new(urlshorterservice.MockURLShorterService)
 			test.mockSetup(mockService)
 

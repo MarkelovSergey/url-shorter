@@ -17,13 +17,13 @@ func (h *handler) ReadHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := parts[len(parts)-1]
-	u := h.urlShorterService.GetOriginalURL(id)
-	if u == nil {
+	u, err := h.urlShorterService.GetOriginalURL(id)
+	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("ID not found"))
 
 		return
 	}
 
-	http.Redirect(w, r, *u, http.StatusTemporaryRedirect)
+	http.Redirect(w, r, u, http.StatusTemporaryRedirect)
 }

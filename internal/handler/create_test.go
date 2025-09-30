@@ -37,7 +37,7 @@ func TestCreateHandler(t *testing.T) {
 			contentType: "text/plain",
 			body:        originalURL,
 			mockSetup: func(m *urlshorterservice.MockURLShorterService) {
-				m.EXPECT().Generate(originalURL).Return(shortID)
+				m.EXPECT().Generate(originalURL).Return(shortID, nil)
 			},
 			expectedStatus: http.StatusCreated,
 			expectedBody:   expectedShortURL,

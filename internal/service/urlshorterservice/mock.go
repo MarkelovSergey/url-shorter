@@ -36,7 +36,7 @@ func (_m *MockURLShorterService) EXPECT() *MockURLShorterService_Expecter {
 }
 
 // Generate provides a mock function for the type MockURLShorterService
-func (_mock *MockURLShorterService) Generate(url string) string {
+func (_mock *MockURLShorterService) Generate(url string) (string, error) {
 	ret := _mock.Called(url)
 
 	if len(ret) == 0 {
@@ -44,12 +44,21 @@ func (_mock *MockURLShorterService) Generate(url string) string {
 	}
 
 	var r0 string
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(string) (string, error)); ok {
+		return returnFunc(url)
+	}
 	if returnFunc, ok := ret.Get(0).(func(string) string); ok {
 		r0 = returnFunc(url)
 	} else {
 		r0 = ret.Get(0).(string)
 	}
-	return r0
+	if returnFunc, ok := ret.Get(1).(func(string) error); ok {
+		r1 = returnFunc(url)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
 }
 
 // MockURLShorterService_Generate_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Generate'
@@ -76,33 +85,40 @@ func (_c *MockURLShorterService_Generate_Call) Run(run func(url string)) *MockUR
 	return _c
 }
 
-func (_c *MockURLShorterService_Generate_Call) Return(s string) *MockURLShorterService_Generate_Call {
-	_c.Call.Return(s)
+func (_c *MockURLShorterService_Generate_Call) Return(s string, err error) *MockURLShorterService_Generate_Call {
+	_c.Call.Return(s, err)
 	return _c
 }
 
-func (_c *MockURLShorterService_Generate_Call) RunAndReturn(run func(url string) string) *MockURLShorterService_Generate_Call {
+func (_c *MockURLShorterService_Generate_Call) RunAndReturn(run func(url string) (string, error)) *MockURLShorterService_Generate_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // GetOriginalURL provides a mock function for the type MockURLShorterService
-func (_mock *MockURLShorterService) GetOriginalURL(id string) *string {
+func (_mock *MockURLShorterService) GetOriginalURL(id string) (string, error) {
 	ret := _mock.Called(id)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetOriginalURL")
 	}
 
-	var r0 *string
-	if returnFunc, ok := ret.Get(0).(func(string) *string); ok {
+	var r0 string
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(string) (string, error)); ok {
+		return returnFunc(id)
+	}
+	if returnFunc, ok := ret.Get(0).(func(string) string); ok {
 		r0 = returnFunc(id)
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*string)
-		}
+		r0 = ret.Get(0).(string)
 	}
-	return r0
+	if returnFunc, ok := ret.Get(1).(func(string) error); ok {
+		r1 = returnFunc(id)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
 }
 
 // MockURLShorterService_GetOriginalURL_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetOriginalURL'
@@ -129,12 +145,12 @@ func (_c *MockURLShorterService_GetOriginalURL_Call) Run(run func(id string)) *M
 	return _c
 }
 
-func (_c *MockURLShorterService_GetOriginalURL_Call) Return(s *string) *MockURLShorterService_GetOriginalURL_Call {
-	_c.Call.Return(s)
+func (_c *MockURLShorterService_GetOriginalURL_Call) Return(s string, err error) *MockURLShorterService_GetOriginalURL_Call {
+	_c.Call.Return(s, err)
 	return _c
 }
 
-func (_c *MockURLShorterService_GetOriginalURL_Call) RunAndReturn(run func(id string) *string) *MockURLShorterService_GetOriginalURL_Call {
+func (_c *MockURLShorterService_GetOriginalURL_Call) RunAndReturn(run func(id string) (string, error)) *MockURLShorterService_GetOriginalURL_Call {
 	_c.Call.Return(run)
 	return _c
 }

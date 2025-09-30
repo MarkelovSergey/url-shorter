@@ -35,7 +35,14 @@ func (h *handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	us := h.urlShorterService.Generate(u)
+	us, err := h.urlShorterService.Generate(u)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(err.Error()))
+
+		return
+	}
+
 	shortURL, err := url.JoinPath(h.config.BaseURL, us)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
