@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
-	"sync"
 
 	"github.com/MarkelovSergey/url-shorter/internal/repository"
 	"github.com/MarkelovSergey/url-shorter/internal/repository/urlshorterrepository"
@@ -24,13 +23,11 @@ type URLShorterService interface {
 
 type urlShorterService struct {
 	urlShorterRepo urlshorterrepository.URLShorterRepository
-	mu             *sync.Mutex
 }
 
 func New(urlShorterRepo urlshorterrepository.URLShorterRepository) URLShorterService {
 	return &urlShorterService{
 		urlShorterRepo: urlShorterRepo,
-		mu:             &sync.Mutex{},
 	}
 }
 
