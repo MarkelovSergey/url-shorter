@@ -1,6 +1,14 @@
 package config
 
-import "flag"
+import (
+	"flag"
+	"os"
+)
+
+const (
+	serverAddressEnv = "SERVER_ADDRESS"
+	baseURLEnv       = "BASE_URL"
+)
 
 type Config struct {
 	ServerAddress string
@@ -19,5 +27,15 @@ func ParseFlags() Config {
 	baseURL := flag.String("b", "http://localhost:8080", "base URL")
 	flag.Parse()
 
-	return *New(*serverAddr, *baseURL)
+	finalServerAddr := *serverAddr
+	if envServerAddr := os.Getenv(serverAddressEnv); envServerAddr != "" {
+		finalServerAddr = envServerAddr
+	}
+
+	finalBaseURL := *baseURL
+	if envBaseURL := os.Getenv(baseURLEnv); envBaseURL != "" {
+		finalBaseURL = envBaseURL
+	}
+
+	return *New(finalServerAddr, finalBaseURL)
 }

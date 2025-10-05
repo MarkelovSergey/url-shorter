@@ -3,7 +3,11 @@
   "image": "golang:1.25.1-alpine3.22",
   "runArgs": [
     "--name",
-    "url-shorter"
+    "url-shorter",
+    "--env",
+    "BASE_URL=http://localhost:8080",
+    "--env",
+    "SERVER_ADDRESS=:8080"
   ],
   "customizations": {
     "vscode": {
@@ -17,5 +21,5 @@
   "forwardPorts": [
     8080
   ],
-  "postCreateCommand": "apk add git && go install -v github.com/go-delve/delve/cmd/dlv@latest"
+  "postCreateCommand": "apk add git gcompat && go install -v github.com/go-delve/delve/cmd/dlv@latest"
 }
