@@ -11,9 +11,11 @@ import (
 
 	"github.com/MarkelovSergey/url-shorter/internal/config"
 	"github.com/MarkelovSergey/url-shorter/internal/handler"
+	"github.com/MarkelovSergey/url-shorter/internal/middleware"
 	"github.com/MarkelovSergey/url-shorter/internal/repository/urlshorterrepository"
 	"github.com/MarkelovSergey/url-shorter/internal/service/urlshorterservice"
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
 )
 
 type App struct {
@@ -21,11 +23,15 @@ type App struct {
 }
 
 func New(cfg config.Config) *App {
+	logger, _ := zap.NewProduction()
+	defer logger.Sync()
+
 	urlShorterRepo := urlshorterrepository.New()
 	urlShorterService := urlshorterservice.New(urlShorterRepo)
 
 	handler := handler.New(cfg, urlShorterService)
 	r := chi.NewRouter()
+	r.Use(middleware.Logging(logger))
 
 	r.Post("/", handler.CreateHandler)
 	r.Get("/{id}", handler.ReadHandler)
