@@ -35,6 +35,7 @@ func New(cfg config.Config) *App {
 
 	r.Post("/", handler.CreateHandler)
 	r.Get("/{id}", handler.ReadHandler)
+	r.Post("/api/shorten", handler.CreateApiHandler)
 
 	srv := &http.Server{
 		Addr:    cfg.ServerAddress,
