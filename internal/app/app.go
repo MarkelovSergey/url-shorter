@@ -32,6 +32,7 @@ func New(cfg config.Config) *App {
 	handler := handler.New(cfg, urlShorterService)
 	r := chi.NewRouter()
 	r.Use(middleware.Logging(logger))
+	r.Use(middleware.Gzipping)
 
 	r.Post("/", handler.CreateHandler)
 	r.Get("/{id}", handler.ReadHandler)
