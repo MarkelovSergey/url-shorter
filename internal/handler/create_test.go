@@ -13,11 +13,16 @@ import (
 )
 
 func TestCreateHandler(t *testing.T) {
-	config := *config.New("http://localhost:8080", "http://localhost:8080")
+	cfg := *config.New(
+		"http://localhost:8080",
+		"http://localhost:8080",
+		"/var/lib/url-shorter/short-url-db.json",
+	)
+
 	originalURL := "https://practicum.yandex.ru"
 	shortID := "test"
 
-	expectedShortURL, err := url.JoinPath(config.BaseURL, shortID)
+	expectedShortURL, err := url.JoinPath(cfg.BaseURL, shortID)
 	if err != nil {
 		t.Fatalf("Failed to join URL paths: %v", err)
 	}
@@ -76,11 +81,11 @@ func TestCreateHandler(t *testing.T) {
 			mockService := new(urlshorterservice.MockURLShorterService)
 			test.mockSetup(mockService)
 
-			req := httptest.NewRequest(test.method, config.ServerAddress, strings.NewReader(test.body))
+			req := httptest.NewRequest(test.method, cfg.ServerAddress, strings.NewReader(test.body))
 			req.Header.Set("Content-Type", test.contentType)
 			w := httptest.NewRecorder()
 
-			h := New(config, mockService)
+			h := New(cfg, mockService)
 			h.CreateHandler(w, req)
 
 			assert.Equal(t, test.expectedStatus, w.Code)

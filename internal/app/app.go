@@ -14,6 +14,7 @@ import (
 	"github.com/MarkelovSergey/url-shorter/internal/middleware"
 	"github.com/MarkelovSergey/url-shorter/internal/repository/urlshorterrepository"
 	"github.com/MarkelovSergey/url-shorter/internal/service/urlshorterservice"
+	"github.com/MarkelovSergey/url-shorter/internal/storage/filestorage"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 )
@@ -26,7 +27,9 @@ func New(cfg config.Config) *App {
 	logger, _ := zap.NewProduction()
 	defer logger.Sync()
 
-	urlShorterRepo := urlshorterrepository.New()
+	storage := filestorage.New(cfg.FileStoragePath)
+
+	urlShorterRepo := urlshorterrepository.New(storage)
 	urlShorterService := urlshorterservice.New(urlShorterRepo)
 
 	handler := handler.New(cfg, urlShorterService)

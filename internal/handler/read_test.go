@@ -12,7 +12,12 @@ import (
 )
 
 func TestReadHandler(t *testing.T) {
-	cfg := *config.New("http://localhost:8080", "http://localhost:8080")
+	cfg := *config.New(
+		"http://localhost:8080", 
+		"http://localhost:8080", 
+		"/var/lib/url-shorter/short-url-db.json",
+	)
+	
 	originalURL := "https://practicum.yandex.ru"
 	shortID := "test"
 

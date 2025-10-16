@@ -1,9 +1,12 @@
 package urlshorterrepository
 
 import (
+	"strconv"
 	"sync"
 
+	"github.com/MarkelovSergey/url-shorter/internal/model"
 	"github.com/MarkelovSergey/url-shorter/internal/repository"
+	"github.com/MarkelovSergey/url-shorter/internal/storage/filestorage"
 )
 
 type URLShorterRepository interface {
@@ -15,14 +18,22 @@ type urlShorterRepository struct {
 	urls       map[string]string
 	shortCodes map[string]string
 	mu         *sync.Mutex
+	storage    filestorage.Storage
+	counter    int
 }
 
-func New() URLShorterRepository {
-	return &urlShorterRepository{
+func New(storage filestorage.Storage) URLShorterRepository {
+	repo := &urlShorterRepository{
 		urls:       make(map[string]string),
 		shortCodes: make(map[string]string),
 		mu:         &sync.Mutex{},
+		storage:    storage,
+		counter:    0,
 	}
+
+	repo.loadFromFile()
+
+	return repo
 }
 
 func (r *urlShorterRepository) Add(shortCode, url string) (string, error) {
@@ -44,6 +55,21 @@ func (r *urlShorterRepository) Add(shortCode, url string) (string, error) {
 	r.urls[shortCode] = url
 	r.shortCodes[url] = shortCode
 
+	r.counter++
+	record := model.URLRecord{
+		UUID:        strconv.Itoa(r.counter),
+		ShortURL:    shortCode,
+		OriginalURL: url,
+	}
+
+	if err := r.storage.Append(record); err != nil {
+		delete(r.urls, shortCode)
+		delete(r.shortCodes, url)
+		r.counter--
+		
+		return "", err
+	}
+
 	return shortCode, nil
 }
 
@@ -57,4 +83,22 @@ func (r *urlShorterRepository) Find(shortCode string) (string, error) {
 	}
 
 	return v, nil
+}
+
+func (r *urlShorterRepository) loadFromFile() error {
+	records, err := r.storage.Load()
+	if err != nil {
+		return err
+	}
+
+	for _, record := range records {
+		r.urls[record.ShortURL] = record.OriginalURL
+		r.shortCodes[record.OriginalURL] = record.ShortURL
+
+		if uuid, err := strconv.Atoi(record.UUID); err == nil && uuid > r.counter {
+			r.counter = uuid
+		}
+	}
+
+	return nil
 }
