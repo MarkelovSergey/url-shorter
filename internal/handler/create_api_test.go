@@ -14,13 +14,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCreateApiHandler(t *testing.T) {
+func TestCreateAPIHandler(t *testing.T) {
 	cfg := *config.New(
-		"http://localhost:8080", 
-		"http://localhost:8080", 
+		"http://localhost:8080",
+		"http://localhost:8080",
 		"/var/lib/url-shorter/short-url-db.json",
 	)
-	
+
 	originalURL := "https://practicum.yandex.ru"
 	shortID := "test"
 
@@ -102,7 +102,7 @@ func TestCreateApiHandler(t *testing.T) {
 			w := httptest.NewRecorder()
 
 			h := New(cfg, mockService)
-			h.CreateApiHandler(w, req)
+			h.CreateAPIHandler(w, req)
 
 			assert.Equal(t, test.expectedStatus, w.Code)
 

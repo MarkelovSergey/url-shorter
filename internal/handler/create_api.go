@@ -10,7 +10,7 @@ import (
 	"github.com/MarkelovSergey/url-shorter/internal/model"
 )
 
-func (h *handler) CreateApiHandler(w http.ResponseWriter, r *http.Request) {
+func (h *handler) CreateAPIHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("Content-Type") != "application/json" {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("unsupported media type"))
