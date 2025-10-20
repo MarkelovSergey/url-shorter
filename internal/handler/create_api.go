@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/MarkelovSergey/url-shorter/internal/model"
+	"go.uber.org/zap"
 )
 
 func (h *handler) CreateAPIHandler(w http.ResponseWriter, r *http.Request) {
@@ -64,8 +65,14 @@ func (h *handler) CreateAPIHandler(w http.ResponseWriter, r *http.Request) {
 	resp := model.Response{Result: shortURL}
 	jsonResp, err := json.Marshal(resp)
 	if err != nil {
+		h.logger.Error("failed to marshal JSON response",
+			zap.Error(err),
+			zap.String("method", r.Method),
+			zap.String("path", r.URL.Path),
+		)
+		
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("error generating JSON response"))
+		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
 
 		return
 	}

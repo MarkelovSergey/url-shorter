@@ -31,7 +31,17 @@ func New(storage filestorage.Storage) URLShorterRepository {
 		counter:    0,
 	}
 
-	repo.loadFromFile()
+	records, err := storage.Load()
+	if err == nil {
+		for _, record := range records {
+			repo.urls[record.ShortURL] = record.OriginalURL
+			repo.shortCodes[record.OriginalURL] = record.ShortURL
+
+			if uuid, err := strconv.Atoi(record.UUID); err == nil && uuid > repo.counter {
+				repo.counter = uuid
+			}
+		}
+	}
 
 	return repo
 }
@@ -83,22 +93,4 @@ func (r *urlShorterRepository) Find(shortCode string) (string, error) {
 	}
 
 	return v, nil
-}
-
-func (r *urlShorterRepository) loadFromFile() error {
-	records, err := r.storage.Load()
-	if err != nil {
-		return err
-	}
-
-	for _, record := range records {
-		r.urls[record.ShortURL] = record.OriginalURL
-		r.shortCodes[record.OriginalURL] = record.ShortURL
-
-		if uuid, err := strconv.Atoi(record.UUID); err == nil && uuid > r.counter {
-			r.counter = uuid
-		}
-	}
-
-	return nil
 }

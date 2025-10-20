@@ -24,7 +24,10 @@ type App struct {
 }
 
 func New(cfg config.Config) *App {
-	logger, _ := zap.NewProduction()
+	logger, err := zap.NewProduction()
+	if err != nil {
+		log.Fatalf("Failed to initialize logger: %v", err)
+	}
 	defer logger.Sync()
 
 	storage := filestorage.New(cfg.FileStoragePath)
@@ -32,7 +35,7 @@ func New(cfg config.Config) *App {
 	urlShorterRepo := urlshorterrepository.New(storage)
 	urlShorterService := urlshorterservice.New(urlShorterRepo)
 
-	handler := handler.New(cfg, urlShorterService)
+	handler := handler.New(cfg, urlShorterService, logger)
 	r := chi.NewRouter()
 	r.Use(middleware.Logging(logger))
 	r.Use(middleware.Gzipping)

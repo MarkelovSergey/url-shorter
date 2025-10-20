@@ -9,15 +9,18 @@ import (
 	"github.com/MarkelovSergey/url-shorter/internal/service"
 	"github.com/MarkelovSergey/url-shorter/internal/service/urlshorterservice"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 )
 
 func TestReadHandler(t *testing.T) {
-	cfg := *config.New(
-		"http://localhost:8080", 
-		"http://localhost:8080", 
+	logger := zap.NewNop()
+
+	cfg := config.New(
+		"http://localhost:8080",
+		"http://localhost:8080",
 		"/var/lib/url-shorter/short-url-db.json",
 	)
-	
+
 	originalURL := "https://practicum.yandex.ru"
 	shortID := "test"
 
@@ -68,7 +71,7 @@ func TestReadHandler(t *testing.T) {
 			req := httptest.NewRequest(test.method, test.path, nil)
 			w := httptest.NewRecorder()
 
-			h := New(cfg, mockService)
+			h := New(cfg, mockService, logger)
 			h.ReadHandler(w, req)
 
 			assert.Equal(t, test.expectedStatus, w.Code)

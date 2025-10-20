@@ -24,12 +24,12 @@ func New(filePath string) Storage {
 }
 
 func (fs *fileStorage) Load() ([]model.URLRecord, error) {
-	if _, err := os.Stat(fs.filePath); os.IsNotExist(err) {
-		return []model.URLRecord{}, nil
-	}
-
 	data, err := os.ReadFile(fs.filePath)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return []model.URLRecord{}, nil
+		}
+		
 		return nil, err
 	}
 

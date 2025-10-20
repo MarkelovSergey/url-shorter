@@ -17,8 +17,8 @@ type Config struct {
 	FileStoragePath string
 }
 
-func New(serverAddr, baseURL, fileStoragePath string) *Config {
-	return &Config{
+func New(serverAddr, baseURL, fileStoragePath string) Config {
+	return Config{
 		ServerAddress:   serverAddr,
 		BaseURL:         baseURL,
 		FileStoragePath: fileStoragePath,
@@ -32,19 +32,19 @@ func ParseFlags() Config {
 	flag.Parse()
 
 	finalServerAddr := *serverAddr
-	if envServerAddr := os.Getenv(serverAddressEnv); envServerAddr != "" {
+	if envServerAddr, ok := os.LookupEnv(serverAddressEnv); ok {
 		finalServerAddr = envServerAddr
 	}
 
 	finalBaseURL := *baseURL
-	if envBaseURL := os.Getenv(baseURLEnv); envBaseURL != "" {
+	if envBaseURL, ok := os.LookupEnv(baseURLEnv); ok {
 		finalBaseURL = envBaseURL
 	}
 
 	finalFileStoragePath := *fileStoragePath
-	if envFileStoragePath := os.Getenv(fileStoragePathEnv); envFileStoragePath != "" {
+	if envFileStoragePath, ok := os.LookupEnv(fileStoragePathEnv); ok {
 		finalFileStoragePath = envFileStoragePath
 	}
 
-	return *New(finalServerAddr, finalBaseURL, finalFileStoragePath)
+	return New(finalServerAddr, finalBaseURL, finalFileStoragePath)
 }

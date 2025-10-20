@@ -8,6 +8,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGzipCompressResponse(t *testing.T) {
@@ -83,42 +85,26 @@ func TestGzipCompressResponse(t *testing.T) {
 			defer resp.Body.Close()
 
 			if tt.shouldCompress {
-				if resp.Header.Get("Content-Encoding") != "gzip" {
-					t.Errorf("Expected Content-Encoding: gzip, got: %s", resp.Header.Get("Content-Encoding"))
-				}
+				assert.Equal(t, "gzip", resp.Header.Get("Content-Encoding"))
 
 				gzReader, err := gzip.NewReader(resp.Body)
-				if err != nil {
-					t.Fatalf("Failed to create gzip reader: %v", err)
-				}
+				assert.NoError(t, err, "Failed to create gzip reader")
 				defer gzReader.Close()
 
 				body, err := io.ReadAll(gzReader)
-				if err != nil {
-					t.Fatalf("Failed to read gzipped body: %v", err)
-				}
+				assert.NoError(t, err, "Failed to read gzipped body")
 
-				if string(body) != tt.responseBody {
-					t.Errorf("Expected body: %s, got: %s", tt.responseBody, string(body))
-				}
+				assert.Equal(t, tt.responseBody, string(body))
 			} else {
-				if resp.Header.Get("Content-Encoding") == "gzip" {
-					t.Errorf("Expected no gzip compression, but got Content-Encoding: gzip")
-				}
+				assert.NotEqual(t, "gzip", resp.Header.Get("Content-Encoding"))
 
 				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					t.Fatalf("Failed to read body: %v", err)
-				}
+				assert.NoError(t, err, "Failed to read body")
 
-				if string(body) != tt.responseBody {
-					t.Errorf("Expected body: %s, got: %s", tt.responseBody, string(body))
-				}
+				assert.Equal(t, tt.responseBody, string(body))
 			}
 
-			if !strings.Contains(resp.Header.Get("Content-Type"), tt.expectedContentType) {
-				t.Errorf("Expected Content-Type to contain: %s, got: %s", tt.expectedContentType, resp.Header.Get("Content-Type"))
-			}
+			assert.Contains(t, resp.Header.Get("Content-Type"), tt.expectedContentType)
 		})
 	}
 }
@@ -133,13 +119,9 @@ func TestGzipDecompressRequest(t *testing.T) {
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
-		if err != nil {
-			t.Fatalf("Failed to read request body: %v", err)
-		}
+		assert.NoError(t, err, "Failed to read request body")
 
-		if string(body) != expectedBody {
-			t.Errorf("Expected body: %s, got: %s", expectedBody, string(body))
-		}
+		assert.Equal(t, expectedBody, string(body))
 
 		w.WriteHeader(http.StatusOK)
 	})
@@ -152,9 +134,7 @@ func TestGzipDecompressRequest(t *testing.T) {
 	rec := httptest.NewRecorder()
 	middleware.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusOK {
-		t.Errorf("Expected status: %d, got: %d", http.StatusOK, rec.Code)
-	}
+	assert.Equal(t, http.StatusOK, rec.Code)
 }
 
 func TestGzipDecompressAndCompressRequest(t *testing.T) {
@@ -168,13 +148,9 @@ func TestGzipDecompressAndCompressRequest(t *testing.T) {
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
-		if err != nil {
-			t.Fatalf("Failed to read request body: %v", err)
-		}
+		assert.NoError(t, err, "Failed to read request body")
 
-		if string(body) != requestBody {
-			t.Errorf("Expected request body: %s, got: %s", requestBody, string(body))
-		}
+		assert.Equal(t, requestBody, string(body))
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -193,24 +169,16 @@ func TestGzipDecompressAndCompressRequest(t *testing.T) {
 	resp := rec.Result()
 	defer resp.Body.Close()
 
-	if resp.Header.Get("Content-Encoding") != "gzip" {
-		t.Errorf("Expected Content-Encoding: gzip, got: %s", resp.Header.Get("Content-Encoding"))
-	}
+	assert.Equal(t, "gzip", resp.Header.Get("Content-Encoding"))
 
 	gzReader, err := gzip.NewReader(resp.Body)
-	if err != nil {
-		t.Fatalf("Failed to create gzip reader: %v", err)
-	}
+	assert.NoError(t, err, "Failed to create gzip reader")
 	defer gzReader.Close()
 
 	body, err := io.ReadAll(gzReader)
-	if err != nil {
-		t.Fatalf("Failed to read gzipped response body: %v", err)
-	}
+	assert.NoError(t, err, "Failed to read gzipped response body")
 
-	if string(body) != responseBody {
-		t.Errorf("Expected response body: %s, got: %s", responseBody, string(body))
-	}
+	assert.Equal(t, responseBody, string(body))
 }
 
 func TestGzipInvalidGzipRequest(t *testing.T) {
@@ -226,7 +194,5 @@ func TestGzipInvalidGzipRequest(t *testing.T) {
 	rec := httptest.NewRecorder()
 	middleware.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusInternalServerError {
-		t.Errorf("Expected status: %d, got: %d", http.StatusInternalServerError, rec.Code)
-	}
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 }

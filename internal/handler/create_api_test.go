@@ -12,10 +12,13 @@ import (
 	"github.com/MarkelovSergey/url-shorter/internal/model"
 	"github.com/MarkelovSergey/url-shorter/internal/service/urlshorterservice"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 )
 
 func TestCreateAPIHandler(t *testing.T) {
-	cfg := *config.New(
+	logger := zap.NewNop()
+
+	cfg := config.New(
 		"http://localhost:8080",
 		"http://localhost:8080",
 		"/var/lib/url-shorter/short-url-db.json",
@@ -101,7 +104,7 @@ func TestCreateAPIHandler(t *testing.T) {
 			req.Header.Set("Content-Type", test.contentType)
 			w := httptest.NewRecorder()
 
-			h := New(cfg, mockService)
+			h := New(cfg, mockService, logger)
 			h.CreateAPIHandler(w, req)
 
 			assert.Equal(t, test.expectedStatus, w.Code)
