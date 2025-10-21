@@ -1,0 +1,25 @@
+{
+  "name": "Go",
+  "image": "golang:1.24.9-alpine3.22",
+  "runArgs": [
+    "--name",
+    "url-shorter",
+    "--env",
+    "BASE_URL=http://localhost:8080",
+    "--env",
+    "SERVER_ADDRESS=:8080"
+  ],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.Go",
+        "esbenp.prettier-vscode",
+        "ms-azuretools.vscode-docker"
+      ]
+    }
+  },
+  "forwardPorts": [
+    8080
+  ],
+  "postCreateCommand": "apk add git gcompat && go install -v github.com/go-delve/delve/cmd/dlv@latest"
+}

@@ -11,9 +11,12 @@ import (
 
 	"github.com/MarkelovSergey/url-shorter/internal/config"
 	"github.com/MarkelovSergey/url-shorter/internal/handler"
+	"github.com/MarkelovSergey/url-shorter/internal/middleware"
 	"github.com/MarkelovSergey/url-shorter/internal/repository/urlshorterrepository"
 	"github.com/MarkelovSergey/url-shorter/internal/service/urlshorterservice"
+	"github.com/MarkelovSergey/url-shorter/internal/storage/filestorage"
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
 )
 
 type App struct {
@@ -21,14 +24,25 @@ type App struct {
 }
 
 func New(cfg config.Config) *App {
-	urlShorterRepo := urlshorterrepository.New()
+	logger, err := zap.NewProduction()
+	if err != nil {
+		log.Fatalf("Failed to initialize logger: %v", err)
+	}
+	defer logger.Sync()
+
+	storage := filestorage.New(cfg.FileStoragePath)
+
+	urlShorterRepo := urlshorterrepository.New(storage)
 	urlShorterService := urlshorterservice.New(urlShorterRepo)
 
-	handler := handler.New(cfg, urlShorterService)
+	handler := handler.New(cfg, urlShorterService, logger)
 	r := chi.NewRouter()
+	r.Use(middleware.Logging(logger))
+	r.Use(middleware.Gzipping)
 
 	r.Post("/", handler.CreateHandler)
 	r.Get("/{id}", handler.ReadHandler)
+	r.Post("/api/shorten", handler.CreateAPIHandler)
 
 	srv := &http.Server{
 		Addr:    cfg.ServerAddress,
