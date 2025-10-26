@@ -6,6 +6,7 @@ import (
 	"math/rand"
 
 	"github.com/MarkelovSergey/url-shorter/internal/repository"
+	"github.com/MarkelovSergey/url-shorter/internal/repository/healthrepository"
 	"github.com/MarkelovSergey/url-shorter/internal/repository/urlshorterrepository"
 	"github.com/MarkelovSergey/url-shorter/internal/service"
 )
@@ -23,11 +24,16 @@ type URLShorterService interface {
 
 type urlShorterService struct {
 	urlShorterRepo urlshorterrepository.URLShorterRepository
+	healthRepo     healthrepository.HealthRepository
 }
 
-func New(urlShorterRepo urlshorterrepository.URLShorterRepository) URLShorterService {
+func New(
+	urlShorterRepo urlshorterrepository.URLShorterRepository,
+	healthRepo healthrepository.HealthRepository,
+) URLShorterService {
 	return &urlShorterService{
 		urlShorterRepo: urlShorterRepo,
+		healthRepo:     healthRepo,
 	}
 }
 

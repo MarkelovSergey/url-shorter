@@ -3,11 +3,7 @@
   "image": "golang:1.24.9-alpine3.22",
   "runArgs": [
     "--name",
-    "url-shorter",
-    "--env",
-    "BASE_URL=http://localhost:8080",
-    "--env",
-    "SERVER_ADDRESS=:8080"
+    "url-shorter"
   ],
   "customizations": {
     "vscode": {
@@ -21,5 +17,10 @@
   "forwardPorts": [
     8080
   ],
-  "postCreateCommand": "apk add git gcompat && go install -v github.com/go-delve/delve/cmd/dlv@latest"
+  "postCreateCommand": "apk add git gcompat && go install -v github.com/go-delve/delve/cmd/dlv@latest",
+  "remoteEnv": {
+    "BASE_URL": "http://localhost:8080",
+    "SERVER_ADDRESS": ":8080",
+    "DATABASE_DSN": "postgres://postgres:password@host.docker.internal:5432/postgres"
+  }
 }

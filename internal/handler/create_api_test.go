@@ -10,6 +10,7 @@ import (
 
 	"github.com/MarkelovSergey/url-shorter/internal/config"
 	"github.com/MarkelovSergey/url-shorter/internal/model"
+	"github.com/MarkelovSergey/url-shorter/internal/service/healthservice"
 	"github.com/MarkelovSergey/url-shorter/internal/service/urlshorterservice"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
@@ -22,6 +23,7 @@ func TestCreateAPIHandler(t *testing.T) {
 		"http://localhost:8080",
 		"http://localhost:8080",
 		"/var/lib/url-shorter/short-url-db.json",
+		"postgres://postgres:password@host.docker.internal:5432/postgres",
 	)
 
 	originalURL := "https://practicum.yandex.ru"
@@ -92,8 +94,10 @@ func TestCreateAPIHandler(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			mockService := new(urlshorterservice.MockURLShorterService)
-			test.mockSetup(mockService)
+			mockURLShorterService := new(urlshorterservice.MockURLShorterService)
+			mockHealthService := new(healthservice.MockHealthService)
+
+			test.mockSetup(mockURLShorterService)
 
 			req := httptest.NewRequest(
 				test.method,
@@ -104,7 +108,7 @@ func TestCreateAPIHandler(t *testing.T) {
 			req.Header.Set("Content-Type", test.contentType)
 			w := httptest.NewRecorder()
 
-			h := New(cfg, mockService, logger)
+			h := New(cfg, mockURLShorterService, mockHealthService, logger)
 			h.CreateAPIHandler(w, req)
 
 			assert.Equal(t, test.expectedStatus, w.Code)
@@ -119,7 +123,7 @@ func TestCreateAPIHandler(t *testing.T) {
 				assert.Equal(t, test.expectedBody, w.Body.String())
 			}
 
-			mockService.AssertExpectations(t)
+			mockURLShorterService.AssertExpectations(t)
 		})
 	}
 }
