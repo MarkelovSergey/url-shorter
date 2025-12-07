@@ -6,7 +6,7 @@ import (
 
 	"github.com/MarkelovSergey/url-shorter/internal/model"
 	"github.com/MarkelovSergey/url-shorter/internal/repository"
-	"github.com/MarkelovSergey/url-shorter/internal/storage/filestorage"
+	"github.com/MarkelovSergey/url-shorter/internal/storage"
 )
 
 type URLShorterRepository interface {
@@ -18,11 +18,11 @@ type urlShorterRepository struct {
 	urls       map[string]string
 	shortCodes map[string]string
 	mu         *sync.Mutex
-	storage    filestorage.Storage
+	storage    storage.Storage
 	counter    int
 }
 
-func New(storage filestorage.Storage) URLShorterRepository {
+func New(storage storage.Storage) URLShorterRepository {
 	repo := &urlShorterRepository{
 		urls:       make(map[string]string),
 		shortCodes: make(map[string]string),

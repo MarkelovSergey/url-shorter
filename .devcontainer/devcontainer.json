@@ -21,6 +21,6 @@
   "remoteEnv": {
     "BASE_URL": "http://localhost:8080",
     "SERVER_ADDRESS": ":8080",
-    "DATABASE_DSN": "postgres://postgres:password@host.docker.internal:5432/postgres"
+    "DATABASE_DSN": "postgres://postgres:mysecretpassword@host.docker.internal:5432/postgres?sslmode=disable"
   }
 }

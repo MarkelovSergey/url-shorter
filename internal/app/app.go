@@ -12,11 +12,15 @@ import (
 	"github.com/MarkelovSergey/url-shorter/internal/config"
 	"github.com/MarkelovSergey/url-shorter/internal/handler"
 	"github.com/MarkelovSergey/url-shorter/internal/middleware"
+	"github.com/MarkelovSergey/url-shorter/internal/migration"
 	"github.com/MarkelovSergey/url-shorter/internal/repository/healthrepository"
 	"github.com/MarkelovSergey/url-shorter/internal/repository/urlshorterrepository"
 	"github.com/MarkelovSergey/url-shorter/internal/service/healthservice"
 	"github.com/MarkelovSergey/url-shorter/internal/service/urlshorterservice"
+	"github.com/MarkelovSergey/url-shorter/internal/storage"
 	"github.com/MarkelovSergey/url-shorter/internal/storage/filestorage"
+	"github.com/MarkelovSergey/url-shorter/internal/storage/memorystorage"
+	"github.com/MarkelovSergey/url-shorter/internal/storage/postgresstorage"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
@@ -29,24 +33,42 @@ type App struct {
 }
 
 func New(cfg config.Config) *App {
-	var conn *pgx.Conn
-	var err error
-
-	if cfg.DatabaseDSN != "" {
-		conn, err = pgx.Connect(context.Background(), cfg.DatabaseDSN)
-		if err != nil {
-			log.Printf("Warning: Failed to initialize postgres connection: %v", err)
-		}
-	}
+	var (
+		conn       *pgx.Conn
+		urlStorage storage.Storage
+		err        error
+	)
 
 	logger, err := zap.NewProduction()
 	if err != nil {
 		log.Fatalf("Failed to initialize logger: %v", err)
 	}
 
-	storage := filestorage.New(cfg.FileStoragePath)
+	if cfg.DatabaseDSN != "" {
+		if err := migration.RunMigrations(cfg.DatabaseDSN); err != nil {
+			log.Fatalf("Warning: Failed to run migrations: %v", err)
+		}
 
-	urlShorterRepo := urlshorterrepository.New(storage)
+		conn, err = pgx.Connect(context.Background(), cfg.DatabaseDSN)
+		if err != nil {
+			log.Fatalf("Warning: Failed to connect to database: %v", err)
+		}
+
+		urlStorage = postgresstorage.New(conn)
+		log.Println("Using PostgreSQL storage")
+	}
+
+	if urlStorage == nil && cfg.FileStoragePath != "" {
+		urlStorage = filestorage.New(cfg.FileStoragePath)
+		log.Printf("Using file storage: %s", cfg.FileStoragePath)
+	}
+
+	if urlStorage == nil {
+		urlStorage = memorystorage.New()
+		log.Println("Using memory storage")
+	}
+
+	urlShorterRepo := urlshorterrepository.New(urlStorage)
 	healthRepo := healthrepository.New(conn)
 
 	healthService := healthservice.New(healthRepo)

@@ -6,18 +6,14 @@ import (
 	"path/filepath"
 
 	"github.com/MarkelovSergey/url-shorter/internal/model"
+	"github.com/MarkelovSergey/url-shorter/internal/storage"
 )
-
-type Storage interface {
-	Load() ([]model.URLRecord, error)
-	Append(record model.URLRecord) error
-}
 
 type fileStorage struct {
 	filePath string
 }
 
-func New(filePath string) Storage {
+func New(filePath string) storage.Storage {
 	return &fileStorage{
 		filePath: filePath,
 	}
