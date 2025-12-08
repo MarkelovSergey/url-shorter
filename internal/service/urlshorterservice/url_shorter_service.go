@@ -20,6 +20,7 @@ const (
 type URLShorterService interface {
 	GetOriginalURL(id string) (string, error)
 	Generate(url string) (string, error)
+	GenerateBatch(urls []string) ([]string, error)
 }
 
 type urlShorterService struct {
@@ -67,6 +68,31 @@ func (s *urlShorterService) Generate(url string) (string, error) {
 
 	return "",
 		fmt.Errorf("%w after %d attempts", service.ErrGenerateShortCode, maxGenerateAttempts)
+}
+
+func (s *urlShorterService) GenerateBatch(urls []string) ([]string, error) {
+	if len(urls) == 0 {
+		return []string{}, nil
+	}
+
+	urlMap := make(map[string]string, 0)
+	for _, url := range urls {
+		for i := 0; i < maxGenerateAttempts; i++ {
+			candidate := s.generateRandomShortCode()
+			if _, exists := urlMap[candidate]; !exists {
+				urlMap[candidate] = url
+
+				break
+			}
+		}
+	}
+
+	shortCodes, err := s.urlShorterRepo.AddBatch(urlMap)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", service.ErrSaveShortCode, err)
+	}
+
+	return shortCodes, nil
 }
 
 func (s *urlShorterService) generateRandomShortCode() string {

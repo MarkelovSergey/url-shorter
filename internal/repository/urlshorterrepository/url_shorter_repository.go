@@ -12,6 +12,7 @@ import (
 type URLShorterRepository interface {
 	Add(shortCode, url string) (string, error)
 	Find(shortCode string) (string, error)
+	AddBatch(urls map[string]string) ([]string, error)
 }
 
 type urlShorterRepository struct {
@@ -76,7 +77,7 @@ func (r *urlShorterRepository) Add(shortCode, url string) (string, error) {
 		delete(r.urls, shortCode)
 		delete(r.shortCodes, url)
 		r.counter--
-		
+
 		return "", err
 	}
 
@@ -93,4 +94,51 @@ func (r *urlShorterRepository) Find(shortCode string) (string, error) {
 	}
 
 	return v, nil
+}
+
+func (r *urlShorterRepository) AddBatch(urls map[string]string) ([]string, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if len(urls) == 0 {
+		return []string{}, nil
+	}
+
+	shortCodes := make([]string, 0, len(urls))
+	records := make([]model.URLRecord, 0, len(urls))
+
+	for shortCode, url := range urls {
+		if existingShortCode, exists := r.shortCodes[url]; exists {
+			shortCodes = append(shortCodes, existingShortCode)
+
+			continue
+		}
+
+		r.urls[shortCode] = url
+		r.shortCodes[url] = shortCode
+		r.counter++
+
+		record := model.URLRecord{
+			UUID:        strconv.Itoa(r.counter),
+			ShortURL:    shortCode,
+			OriginalURL: url,
+		}
+
+		records = append(records, record)
+		shortCodes = append(shortCodes, shortCode)
+	}
+
+	if len(records) > 0 {
+		if err := r.storage.AppendBatch(records); err != nil {
+			for _, record := range records {
+				delete(r.urls, record.ShortURL)
+				delete(r.shortCodes, record.OriginalURL)
+				r.counter--
+			}
+
+			return nil, err
+		}
+	}
+
+	return shortCodes, nil
 }

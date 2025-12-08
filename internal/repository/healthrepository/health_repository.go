@@ -3,7 +3,7 @@ package healthrepository
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type HealthRepository interface {
@@ -11,13 +11,13 @@ type HealthRepository interface {
 }
 
 type healthRepository struct {
-	conn *pgx.Conn
+	pool *pgxpool.Pool
 }
 
-func New(conn *pgx.Conn) HealthRepository {
+func New(conn *pgxpool.Pool) HealthRepository {
 	return &healthRepository{conn}
 }
 
 func (r *healthRepository) Ping(ctx context.Context) error {
-	return r.conn.Ping(ctx)
+	return r.pool.Ping(ctx)
 }

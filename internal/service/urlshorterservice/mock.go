@@ -95,6 +95,68 @@ func (_c *MockURLShorterService_Generate_Call) RunAndReturn(run func(url string)
 	return _c
 }
 
+// GenerateBatch provides a mock function for the type MockURLShorterService
+func (_mock *MockURLShorterService) GenerateBatch(urls []string) ([]string, error) {
+	ret := _mock.Called(urls)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GenerateBatch")
+	}
+
+	var r0 []string
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func([]string) ([]string, error)); ok {
+		return returnFunc(urls)
+	}
+	if returnFunc, ok := ret.Get(0).(func([]string) []string); ok {
+		r0 = returnFunc(urls)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]string)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func([]string) error); ok {
+		r1 = returnFunc(urls)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockURLShorterService_GenerateBatch_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GenerateBatch'
+type MockURLShorterService_GenerateBatch_Call struct {
+	*mock.Call
+}
+
+// GenerateBatch is a helper method to define mock.On call
+//   - urls []string
+func (_e *MockURLShorterService_Expecter) GenerateBatch(urls interface{}) *MockURLShorterService_GenerateBatch_Call {
+	return &MockURLShorterService_GenerateBatch_Call{Call: _e.mock.On("GenerateBatch", urls)}
+}
+
+func (_c *MockURLShorterService_GenerateBatch_Call) Run(run func(urls []string)) *MockURLShorterService_GenerateBatch_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 []string
+		if args[0] != nil {
+			arg0 = args[0].([]string)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockURLShorterService_GenerateBatch_Call) Return(strings []string, err error) *MockURLShorterService_GenerateBatch_Call {
+	_c.Call.Return(strings, err)
+	return _c
+}
+
+func (_c *MockURLShorterService_GenerateBatch_Call) RunAndReturn(run func(urls []string) ([]string, error)) *MockURLShorterService_GenerateBatch_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetOriginalURL provides a mock function for the type MockURLShorterService
 func (_mock *MockURLShorterService) GetOriginalURL(id string) (string, error) {
 	ret := _mock.Called(id)

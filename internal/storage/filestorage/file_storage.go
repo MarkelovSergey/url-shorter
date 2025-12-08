@@ -25,7 +25,7 @@ func (fs *fileStorage) Load() ([]model.URLRecord, error) {
 		if os.IsNotExist(err) {
 			return []model.URLRecord{}, nil
 		}
-		
+
 		return nil, err
 	}
 
@@ -48,6 +48,21 @@ func (fs *fileStorage) Append(record model.URLRecord) error {
 	}
 
 	records = append(records, record)
+
+	return fs.save(records)
+}
+
+func (fs *fileStorage) AppendBatch(newRecords []model.URLRecord) error {
+	if len(newRecords) == 0 {
+		return nil
+	}
+
+	records, err := fs.Load()
+	if err != nil {
+		return err
+	}
+
+	records = append(records, newRecords...)
 
 	return fs.save(records)
 }

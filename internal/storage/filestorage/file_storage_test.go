@@ -245,3 +245,142 @@ func TestFileStorageAppendCreatesDirectory(t *testing.T) {
 	assert.Len(t, records, 1)
 	assert.Equal(t, record, records[0])
 }
+
+func TestFileStorageAppendBatch(t *testing.T) {
+	tests := []struct {
+		name            string
+		existingData    []model.URLRecord
+		recordsToAppend []model.URLRecord
+		expectedRecords []model.URLRecord
+	}{
+		{
+			name:         "append batch to empty storage",
+			existingData: []model.URLRecord{},
+			recordsToAppend: []model.URLRecord{
+				{
+					UUID:        "uuid-1",
+					ShortURL:    "abc123",
+					OriginalURL: "https://practicum.yandex.ru",
+				},
+				{
+					UUID:        "uuid-2",
+					ShortURL:    "def456",
+					OriginalURL: "https://example.com",
+				},
+			},
+			expectedRecords: []model.URLRecord{
+				{
+					UUID:        "uuid-1",
+					ShortURL:    "abc123",
+					OriginalURL: "https://practicum.yandex.ru",
+				},
+				{
+					UUID:        "uuid-2",
+					ShortURL:    "def456",
+					OriginalURL: "https://example.com",
+				},
+			},
+		},
+		{
+			name: "append batch to existing records",
+			existingData: []model.URLRecord{
+				{
+					UUID:        "uuid-1",
+					ShortURL:    "abc123",
+					OriginalURL: "https://practicum.yandex.ru",
+				},
+			},
+			recordsToAppend: []model.URLRecord{
+				{
+					UUID:        "uuid-2",
+					ShortURL:    "def456",
+					OriginalURL: "https://example.com",
+				},
+				{
+					UUID:        "uuid-3",
+					ShortURL:    "ghi789",
+					OriginalURL: "https://test.com",
+				},
+			},
+			expectedRecords: []model.URLRecord{
+				{
+					UUID:        "uuid-1",
+					ShortURL:    "abc123",
+					OriginalURL: "https://practicum.yandex.ru",
+				},
+				{
+					UUID:        "uuid-2",
+					ShortURL:    "def456",
+					OriginalURL: "https://example.com",
+				},
+				{
+					UUID:        "uuid-3",
+					ShortURL:    "ghi789",
+					OriginalURL: "https://test.com",
+				},
+			},
+		},
+		{
+			name: "append empty batch does nothing",
+			existingData: []model.URLRecord{
+				{
+					UUID:        "uuid-1",
+					ShortURL:    "abc123",
+					OriginalURL: "https://practicum.yandex.ru",
+				},
+			},
+			recordsToAppend: []model.URLRecord{},
+			expectedRecords: []model.URLRecord{
+				{
+					UUID:        "uuid-1",
+					ShortURL:    "abc123",
+					OriginalURL: "https://practicum.yandex.ru",
+				},
+			},
+		},
+		{
+			name:         "append batch with single record",
+			existingData: []model.URLRecord{},
+			recordsToAppend: []model.URLRecord{
+				{
+					UUID:        "uuid-1",
+					ShortURL:    "abc123",
+					OriginalURL: "https://practicum.yandex.ru",
+				},
+			},
+			expectedRecords: []model.URLRecord{
+				{
+					UUID:        "uuid-1",
+					ShortURL:    "abc123",
+					OriginalURL: "https://practicum.yandex.ru",
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tempDir := t.TempDir()
+			testFilePath := filepath.Join(tempDir, "test-storage.json")
+			storage := New(testFilePath)
+
+			if len(tt.existingData) > 0 {
+				fs := storage.(*fileStorage)
+				err := fs.save(tt.existingData)
+				require.NoError(t, err)
+			}
+
+			err := storage.AppendBatch(tt.recordsToAppend)
+			assert.NoError(t, err)
+
+			records, err := storage.Load()
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expectedRecords, records)
+
+			if len(tt.recordsToAppend) > 0 {
+				_, err = os.Stat(testFilePath)
+				assert.NoError(t, err)
+			}
+		})
+	}
+}

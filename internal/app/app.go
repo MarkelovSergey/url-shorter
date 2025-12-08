@@ -22,19 +22,19 @@ import (
 	"github.com/MarkelovSergey/url-shorter/internal/storage/memorystorage"
 	"github.com/MarkelovSergey/url-shorter/internal/storage/postgresstorage"
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
 
 type App struct {
 	server *http.Server
-	dbConn *pgx.Conn
+	dbPool *pgxpool.Pool
 	logger *zap.Logger
 }
 
 func New(cfg config.Config) *App {
 	var (
-		conn       *pgx.Conn
+		pool       *pgxpool.Pool
 		urlStorage storage.Storage
 		err        error
 	)
@@ -49,12 +49,12 @@ func New(cfg config.Config) *App {
 			log.Fatalf("Warning: Failed to run migrations: %v", err)
 		}
 
-		conn, err = pgx.Connect(context.Background(), cfg.DatabaseDSN)
+		pool, err = pgxpool.New(context.Background(), cfg.DatabaseDSN)
 		if err != nil {
 			log.Fatalf("Warning: Failed to connect to database: %v", err)
 		}
 
-		urlStorage = postgresstorage.New(conn)
+		urlStorage = postgresstorage.New(pool)
 		log.Println("Using PostgreSQL storage")
 	}
 
@@ -69,7 +69,7 @@ func New(cfg config.Config) *App {
 	}
 
 	urlShorterRepo := urlshorterrepository.New(urlStorage)
-	healthRepo := healthrepository.New(conn)
+	healthRepo := healthrepository.New(pool)
 
 	healthService := healthservice.New(healthRepo)
 	urlShorterService := urlshorterservice.New(urlShorterRepo, healthRepo)
@@ -82,6 +82,7 @@ func New(cfg config.Config) *App {
 	r.Post("/", handler.CreateHandler)
 	r.Get("/{id}", handler.ReadHandler)
 	r.Post("/api/shorten", handler.CreateAPIHandler)
+	r.Post("/api/shorten/batch", handler.CreateBatchHandler)
 	r.Get("/ping", handler.PingHandler)
 
 	srv := &http.Server{
@@ -91,7 +92,7 @@ func New(cfg config.Config) *App {
 
 	return &App{
 		server: srv,
-		dbConn: conn,
+		dbPool: pool,
 		logger: logger,
 	}
 }
@@ -118,8 +119,8 @@ func (a *App) Run() error {
 		return fmt.Errorf("server shutdown failed: %w", err)
 	}
 
-	if a.dbConn != nil {
-		a.dbConn.Close(context.Background())
+	if a.dbPool != nil {
+		a.dbPool.Close()
 	}
 	if a.logger != nil {
 		a.logger.Sync()

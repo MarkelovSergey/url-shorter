@@ -23,3 +23,13 @@ func (ms *memoryStorage) Append(record model.URLRecord) error {
 	ms.records = append(ms.records, record)
 	return nil
 }
+
+func (ms *memoryStorage) AppendBatch(records []model.URLRecord) error {
+	if len(records) == 0 {
+		return nil
+	}
+
+	ms.records = append(ms.records, records...)
+	
+	return nil
+}
