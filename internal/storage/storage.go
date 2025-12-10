@@ -6,4 +6,5 @@ type Storage interface {
 	Load() ([]model.URLRecord, error)
 	Append(record model.URLRecord) error
 	AppendBatch(records []model.URLRecord) error
+	FindByOriginalURL(originalURL string) (string, error)
 }

@@ -1,6 +1,7 @@
 package urlshorterrepository
 
 import (
+	"errors"
 	"strconv"
 	"sync"
 
@@ -51,22 +52,14 @@ func (r *urlShorterRepository) Add(shortCode, url string) (string, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if existingURL, exists := r.urls[shortCode]; exists {
-		if existingURL != url {
-			return "", repository.ErrURLAlreadyExists
-		}
-
-		return shortCode, nil
-	}
-
 	if existingShortCode, exists := r.shortCodes[url]; exists {
-		return existingShortCode, nil
+		return existingShortCode, repository.ErrURLAlreadyExists
 	}
 
 	r.urls[shortCode] = url
 	r.shortCodes[url] = shortCode
-
 	r.counter++
+
 	record := model.URLRecord{
 		UUID:        strconv.Itoa(r.counter),
 		ShortURL:    shortCode,
@@ -77,6 +70,14 @@ func (r *urlShorterRepository) Add(shortCode, url string) (string, error) {
 		delete(r.urls, shortCode)
 		delete(r.shortCodes, url)
 		r.counter--
+
+		if errors.Is(err, repository.ErrURLAlreadyExists) {
+			existingShortCode, findErr := r.storage.FindByOriginalURL(url)
+			if findErr == nil && existingShortCode != "" {
+				r.shortCodes[url] = existingShortCode
+				return existingShortCode, repository.ErrURLAlreadyExists
+			}
+		}
 
 		return "", err
 	}

@@ -30,6 +30,16 @@ func (ms *memoryStorage) AppendBatch(records []model.URLRecord) error {
 	}
 
 	ms.records = append(ms.records, records...)
-	
+
 	return nil
+}
+
+func (ms *memoryStorage) FindByOriginalURL(originalURL string) (string, error) {
+	for _, record := range ms.records {
+		if record.OriginalURL == originalURL {
+			return record.ShortURL, nil
+		}
+	}
+
+	return "", nil
 }

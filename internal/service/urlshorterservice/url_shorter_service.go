@@ -60,6 +60,10 @@ func (s *urlShorterService) Generate(url string) (string, error) {
 		}
 
 		if errors.Is(err, repository.ErrURLAlreadyExists) {
+			return resultCode, fmt.Errorf("%w: %w", service.ErrURLConflict, err) 
+		}
+
+		if errors.Is(err, repository.ErrShortCodeAlreadyExist) {
 			continue
 		}
 

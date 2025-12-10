@@ -67,6 +67,21 @@ func (fs *fileStorage) AppendBatch(newRecords []model.URLRecord) error {
 	return fs.save(records)
 }
 
+func (fs *fileStorage) FindByOriginalURL(originalURL string) (string, error) {
+	records, err := fs.Load()
+	if err != nil {
+		return "", err
+	}
+
+	for _, record := range records {
+		if record.OriginalURL == originalURL {
+			return record.ShortURL, nil
+		}
+	}
+
+	return "", nil
+}
+
 func (fs *fileStorage) save(records []model.URLRecord) error {
 	dir := filepath.Dir(fs.filePath)
 	if err := os.MkdirAll(dir, 0755); err != nil {

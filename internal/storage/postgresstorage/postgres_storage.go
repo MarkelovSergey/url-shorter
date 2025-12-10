@@ -5,8 +5,11 @@ import (
 	"errors"
 
 	"github.com/MarkelovSergey/url-shorter/internal/model"
+	"github.com/MarkelovSergey/url-shorter/internal/repository"
 	"github.com/MarkelovSergey/url-shorter/internal/storage"
+	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -15,9 +18,7 @@ type postgresStorage struct {
 }
 
 func New(pool *pgxpool.Pool) storage.Storage {
-	return &postgresStorage{
-		pool: pool,
-	}
+	return &postgresStorage{pool}
 }
 
 func (ps *postgresStorage) Load() ([]model.URLRecord, error) {
@@ -57,6 +58,11 @@ func (ps *postgresStorage) Append(record model.URLRecord) error {
 		"INSERT INTO urls (uuid, short_url, original_url) VALUES ($1, $2, $3)",
 		record.UUID, record.ShortURL, record.OriginalURL)
 
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
+		return repository.ErrURLAlreadyExists
+	}
+
 	return err
 }
 
@@ -87,4 +93,27 @@ func (ps *postgresStorage) AppendBatch(records []model.URLRecord) error {
 	}
 
 	return nil
+}
+
+func (ps *postgresStorage) FindByOriginalURL(originalURL string) (string, error) {
+	if ps.pool == nil {
+		return "", errors.New("database connection is nil")
+	}
+
+	var shortURL string
+	err := ps.pool.QueryRow(
+		context.Background(),
+		"SELECT short_url FROM urls WHERE original_url = $1",
+		originalURL,
+	).Scan(&shortURL)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", repository.ErrNotFound
+		}
+
+		return "", err
+	}
+
+	return shortURL, nil
 }

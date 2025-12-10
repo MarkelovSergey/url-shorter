@@ -10,6 +10,7 @@ import (
 
 	"github.com/MarkelovSergey/url-shorter/internal/config"
 	"github.com/MarkelovSergey/url-shorter/internal/model"
+	"github.com/MarkelovSergey/url-shorter/internal/service"
 	"github.com/MarkelovSergey/url-shorter/internal/service/healthservice"
 	"github.com/MarkelovSergey/url-shorter/internal/service/urlshorterservice"
 	"github.com/stretchr/testify/assert"
@@ -90,6 +91,17 @@ func TestCreateAPIHandler(t *testing.T) {
 			expectedStatus: http.StatusBadRequest,
 			expectedBody:   "url not correct",
 		},
+		{
+			name:        "URL already exists - should return 409",
+			method:      http.MethodPost,
+			contentType: "application/json",
+			body:        `{"url":"https://practicum.yandex.ru"}`,
+			mockSetup: func(m *urlshorterservice.MockURLShorterService) {
+				m.EXPECT().Generate(originalURL).Return(shortID, service.ErrURLConflict)
+			},
+			expectedStatus: http.StatusConflict,
+			expectedBody:   expectedShortURL,
+		},
 	}
 
 	for _, test := range tests {
@@ -113,7 +125,7 @@ func TestCreateAPIHandler(t *testing.T) {
 
 			assert.Equal(t, test.expectedStatus, w.Code)
 
-			if test.expectedStatus == http.StatusCreated {
+			if test.expectedStatus == http.StatusCreated || test.expectedStatus == http.StatusConflict {
 				var resp model.Response
 				err := json.Unmarshal(w.Body.Bytes(), &resp)
 				assert.NoError(t, err)

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/MarkelovSergey/url-shorter/internal/config"
+	"github.com/MarkelovSergey/url-shorter/internal/service"
 	"github.com/MarkelovSergey/url-shorter/internal/service/healthservice"
 	"github.com/MarkelovSergey/url-shorter/internal/service/urlshorterservice"
 	"github.com/stretchr/testify/assert"
@@ -78,6 +79,17 @@ func TestCreateHandler(t *testing.T) {
 			mockSetup:      func(m *urlshorterservice.MockURLShorterService) {},
 			expectedStatus: http.StatusBadRequest,
 			expectedBody:   "url not correct",
+		},
+		{
+			name:        "URL already exists - should return 409",
+			method:      http.MethodPost,
+			contentType: "text/plain",
+			body:        originalURL,
+			mockSetup: func(m *urlshorterservice.MockURLShorterService) {
+				m.EXPECT().Generate(originalURL).Return(shortID, service.ErrURLConflict)
+			},
+			expectedStatus: http.StatusConflict,
+			expectedBody:   expectedShortURL,
 		},
 	}
 
