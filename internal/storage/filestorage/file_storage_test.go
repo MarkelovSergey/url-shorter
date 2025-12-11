@@ -1,6 +1,7 @@
 package filestorage
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -96,7 +97,7 @@ func TestFileStorageLoad(t *testing.T) {
 
 			storage := New(testFilePath)
 
-			records, err := storage.Load()
+			records, err := storage.Load(context.Background())
 
 			if tt.expectedError {
 				assert.Error(t, err)
@@ -209,10 +210,10 @@ func TestFileStorageAppend(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			err := storage.Append(tt.recordToAppend)
+			err := storage.Append(context.Background(), tt.recordToAppend)
 			assert.NoError(t, err)
 
-			records, err := storage.Load()
+			records, err := storage.Load(context.Background())
 			assert.NoError(t, err)
 			assert.Equal(t, tt.expectedRecords, records)
 
@@ -233,14 +234,14 @@ func TestFileStorageAppendCreatesDirectory(t *testing.T) {
 		OriginalURL: "https://practicum.yandex.ru",
 	}
 
-	err := storage.Append(record)
+	err := storage.Append(context.Background(), record)
 	assert.NoError(t, err)
 
 	dir := filepath.Dir(testFilePath)
 	_, err = os.Stat(dir)
 	assert.NoError(t, err)
 
-	records, err := storage.Load()
+	records, err := storage.Load(context.Background())
 	assert.NoError(t, err)
 	assert.Len(t, records, 1)
 	assert.Equal(t, record, records[0])
@@ -370,10 +371,10 @@ func TestFileStorageAppendBatch(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			err := storage.AppendBatch(tt.recordsToAppend)
+			err := storage.AppendBatch(context.Background(), tt.recordsToAppend)
 			assert.NoError(t, err)
 
-			records, err := storage.Load()
+			records, err := storage.Load(context.Background())
 			assert.NoError(t, err)
 			assert.Equal(t, tt.expectedRecords, records)
 

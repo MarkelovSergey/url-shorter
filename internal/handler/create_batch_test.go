@@ -38,7 +38,7 @@ func TestCreateBatchHandler(t *testing.T) {
 			},
 			contentType: "application/json",
 			mockSetup: func(m *urlshorterservice.MockURLShorterService) {
-				m.EXPECT().GenerateBatch([]string{"https://example.com", "https://google.com"}).
+				m.EXPECT().GenerateBatch(mock.Anything, []string{"https://example.com", "https://google.com"}).
 					Return([]string{"abc12345", "def67890"}, nil)
 			},
 			expectedStatusCode: http.StatusCreated,
@@ -138,7 +138,7 @@ func TestCreateBatchHandlerServiceError(t *testing.T) {
 	mockURLShorterService := new(urlshorterservice.MockURLShorterService)
 	mockHealthService := new(healthservice.MockHealthService)
 
-	mockURLShorterService.EXPECT().GenerateBatch(mock.Anything).Return([]string{}, assert.AnError)
+	mockURLShorterService.EXPECT().GenerateBatch(mock.Anything, mock.Anything).Return([]string{}, assert.AnError)
 
 	h := New(cfg, mockURLShorterService, mockHealthService, logger)
 

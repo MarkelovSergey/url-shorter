@@ -1,6 +1,8 @@
 package memorystorage
 
 import (
+	"context"
+
 	"github.com/MarkelovSergey/url-shorter/internal/model"
 	"github.com/MarkelovSergey/url-shorter/internal/storage"
 )
@@ -15,16 +17,16 @@ func New() storage.Storage {
 	}
 }
 
-func (ms *memoryStorage) Load() ([]model.URLRecord, error) {
+func (ms *memoryStorage) Load(ctx context.Context) ([]model.URLRecord, error) {
 	return ms.records, nil
 }
 
-func (ms *memoryStorage) Append(record model.URLRecord) error {
+func (ms *memoryStorage) Append(ctx context.Context, record model.URLRecord) error {
 	ms.records = append(ms.records, record)
 	return nil
 }
 
-func (ms *memoryStorage) AppendBatch(records []model.URLRecord) error {
+func (ms *memoryStorage) AppendBatch(ctx context.Context, records []model.URLRecord) error {
 	if len(records) == 0 {
 		return nil
 	}
@@ -34,10 +36,20 @@ func (ms *memoryStorage) AppendBatch(records []model.URLRecord) error {
 	return nil
 }
 
-func (ms *memoryStorage) FindByOriginalURL(originalURL string) (string, error) {
+func (ms *memoryStorage) FindByOriginalURL(ctx context.Context, originalURL string) (string, error) {
 	for _, record := range ms.records {
 		if record.OriginalURL == originalURL {
 			return record.ShortURL, nil
+		}
+	}
+
+	return "", nil
+}
+
+func (ms *memoryStorage) FindByShortURL(ctx context.Context, shortURL string) (string, error) {
+	for _, record := range ms.records {
+		if record.ShortURL == shortURL {
+			return record.OriginalURL, nil
 		}
 	}
 

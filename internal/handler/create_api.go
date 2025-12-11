@@ -48,7 +48,7 @@ func (h *handler) CreateAPIHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	us, err := h.urlShorterService.Generate(req.URL)
+	us, err := h.urlShorterService.Generate(r.Context(), req.URL)
 
 	shortURL, joinErr := url.JoinPath(h.config.BaseURL, us)
 	if joinErr != nil {

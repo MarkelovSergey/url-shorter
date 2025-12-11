@@ -1,6 +1,7 @@
 package urlshorterservice
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -18,9 +19,9 @@ const (
 )
 
 type URLShorterService interface {
-	GetOriginalURL(id string) (string, error)
-	Generate(url string) (string, error)
-	GenerateBatch(urls []string) ([]string, error)
+	GetOriginalURL(ctx context.Context, id string) (string, error)
+	Generate(ctx context.Context, url string) (string, error)
+	GenerateBatch(ctx context.Context, urls []string) ([]string, error)
 }
 
 type urlShorterService struct {
@@ -38,8 +39,8 @@ func New(
 	}
 }
 
-func (s *urlShorterService) GetOriginalURL(shortCode string) (string, error) {
-	url, err := s.urlShorterRepo.Find(shortCode)
+func (s *urlShorterService) GetOriginalURL(ctx context.Context, shortCode string) (string, error) {
+	url, err := s.urlShorterRepo.Find(ctx, shortCode)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			return "", fmt.Errorf("%w: %s", service.ErrFindShortCode, shortCode)
@@ -51,16 +52,16 @@ func (s *urlShorterService) GetOriginalURL(shortCode string) (string, error) {
 	return url, nil
 }
 
-func (s *urlShorterService) Generate(url string) (string, error) {
+func (s *urlShorterService) Generate(ctx context.Context, url string) (string, error) {
 	for i := 0; i < maxGenerateAttempts; i++ {
 		candidate := s.generateRandomShortCode()
-		resultCode, err := s.urlShorterRepo.Add(candidate, url)
+		resultCode, err := s.urlShorterRepo.Add(ctx, candidate, url)
 		if err == nil {
 			return resultCode, nil
 		}
 
 		if errors.Is(err, repository.ErrURLAlreadyExists) {
-			return resultCode, fmt.Errorf("%w: %w", service.ErrURLConflict, err) 
+			return resultCode, fmt.Errorf("%w: %w", service.ErrURLConflict, err)
 		}
 
 		if errors.Is(err, repository.ErrShortCodeAlreadyExist) {
@@ -74,7 +75,7 @@ func (s *urlShorterService) Generate(url string) (string, error) {
 		fmt.Errorf("%w after %d attempts", service.ErrGenerateShortCode, maxGenerateAttempts)
 }
 
-func (s *urlShorterService) GenerateBatch(urls []string) ([]string, error) {
+func (s *urlShorterService) GenerateBatch(ctx context.Context, urls []string) ([]string, error) {
 	if len(urls) == 0 {
 		return []string{}, nil
 	}
@@ -91,7 +92,7 @@ func (s *urlShorterService) GenerateBatch(urls []string) ([]string, error) {
 		}
 	}
 
-	shortCodes, err := s.urlShorterRepo.AddBatch(urlMap)
+	shortCodes, err := s.urlShorterRepo.AddBatch(ctx, urlMap)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", service.ErrSaveShortCode, err)
 	}

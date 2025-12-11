@@ -17,7 +17,7 @@ func (h *handler) ReadHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := parts[len(parts)-1]
-	u, err := h.urlShorterService.GetOriginalURL(id)
+	u, err := h.urlShorterService.GetOriginalURL(r.Context(), id)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("ID not found"))

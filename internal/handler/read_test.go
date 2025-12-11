@@ -10,6 +10,7 @@ import (
 	"github.com/MarkelovSergey/url-shorter/internal/service/healthservice"
 	"github.com/MarkelovSergey/url-shorter/internal/service/urlshorterservice"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"go.uber.org/zap"
 )
 
@@ -40,7 +41,7 @@ func TestReadHandler(t *testing.T) {
 			method: http.MethodGet,
 			path:   "/" + shortID,
 			mockSetup: func(m *urlshorterservice.MockURLShorterService) {
-				m.EXPECT().GetOriginalURL(shortID).Return(originalURL, nil)
+				m.EXPECT().GetOriginalURL(mock.Anything, shortID).Return(originalURL, nil)
 			},
 			expectedStatus: http.StatusTemporaryRedirect,
 			expectedURL:    originalURL,
@@ -58,7 +59,7 @@ func TestReadHandler(t *testing.T) {
 			method: http.MethodGet,
 			path:   "/" + shortID,
 			mockSetup: func(m *urlshorterservice.MockURLShorterService) {
-				m.EXPECT().GetOriginalURL(shortID).Return("", service.ErrFindShortCode)
+				m.EXPECT().GetOriginalURL(mock.Anything, shortID).Return("", service.ErrFindShortCode)
 			},
 			expectedStatus: http.StatusBadRequest,
 			expectedBody:   "ID not found",

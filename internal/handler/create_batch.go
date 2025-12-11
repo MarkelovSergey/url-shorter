@@ -67,14 +67,14 @@ func (h *handler) CreateBatchHandler(w http.ResponseWriter, r *http.Request) {
 		correlationIDs = append(correlationIDs, req.CorrelationID)
 	}
 
-	shortCodes, err := h.urlShorterService.GenerateBatch(urls)
+	shortCodes, err := h.urlShorterService.GenerateBatch(r.Context(), urls)
 	if err != nil {
 		h.logger.Error("failed to generate batch short codes",
 			zap.Error(err),
 			zap.String("method", r.Method),
 			zap.String("path", r.URL.Path),
 		)
-		
+
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err.Error()))
 
@@ -90,7 +90,7 @@ func (h *handler) CreateBatchHandler(w http.ResponseWriter, r *http.Request) {
 				zap.String("method", r.Method),
 				zap.String("path", r.URL.Path),
 			)
-			
+
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte("invalid URL format"))
 
@@ -113,7 +113,7 @@ func (h *handler) CreateBatchHandler(w http.ResponseWriter, r *http.Request) {
 
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
-		
+
 		return
 	}
 

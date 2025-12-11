@@ -21,12 +21,12 @@ func New(pool *pgxpool.Pool) storage.Storage {
 	return &postgresStorage{pool}
 }
 
-func (ps *postgresStorage) Load() ([]model.URLRecord, error) {
+func (ps *postgresStorage) Load(ctx context.Context) ([]model.URLRecord, error) {
 	if ps.pool == nil {
 		return nil, errors.New("database connection is nil")
 	}
 
-	rows, err := ps.pool.Query(context.Background(),
+	rows, err := ps.pool.Query(ctx,
 		"SELECT uuid, short_url, original_url FROM urls")
 	if err != nil {
 		return nil, err
@@ -49,12 +49,12 @@ func (ps *postgresStorage) Load() ([]model.URLRecord, error) {
 	return records, nil
 }
 
-func (ps *postgresStorage) Append(record model.URLRecord) error {
+func (ps *postgresStorage) Append(ctx context.Context, record model.URLRecord) error {
 	if ps.pool == nil {
 		return errors.New("database connection is nil")
 	}
 
-	_, err := ps.pool.Exec(context.Background(),
+	_, err := ps.pool.Exec(ctx,
 		"INSERT INTO urls (uuid, short_url, original_url) VALUES ($1, $2, $3)",
 		record.UUID, record.ShortURL, record.OriginalURL)
 
@@ -66,7 +66,7 @@ func (ps *postgresStorage) Append(record model.URLRecord) error {
 	return err
 }
 
-func (ps *postgresStorage) AppendBatch(records []model.URLRecord) error {
+func (ps *postgresStorage) AppendBatch(ctx context.Context, records []model.URLRecord) error {
 	if ps.pool == nil {
 		return errors.New("database connection is nil")
 	}
@@ -83,7 +83,7 @@ func (ps *postgresStorage) AppendBatch(records []model.URLRecord) error {
 		)
 	}
 
-	br := ps.pool.SendBatch(context.Background(), batch)
+	br := ps.pool.SendBatch(ctx, batch)
 	defer br.Close()
 
 	for range records {
@@ -95,14 +95,14 @@ func (ps *postgresStorage) AppendBatch(records []model.URLRecord) error {
 	return nil
 }
 
-func (ps *postgresStorage) FindByOriginalURL(originalURL string) (string, error) {
+func (ps *postgresStorage) FindByOriginalURL(ctx context.Context, originalURL string) (string, error) {
 	if ps.pool == nil {
 		return "", errors.New("database connection is nil")
 	}
 
 	var shortURL string
 	err := ps.pool.QueryRow(
-		context.Background(),
+		ctx,
 		"SELECT short_url FROM urls WHERE original_url = $1",
 		originalURL,
 	).Scan(&shortURL)
@@ -116,4 +116,27 @@ func (ps *postgresStorage) FindByOriginalURL(originalURL string) (string, error)
 	}
 
 	return shortURL, nil
+}
+
+func (ps *postgresStorage) FindByShortURL(ctx context.Context, shortURL string) (string, error) {
+	if ps.pool == nil {
+		return "", errors.New("database connection is nil")
+	}
+
+	var originalURL string
+	err := ps.pool.QueryRow(
+		ctx,
+		"SELECT original_url FROM urls WHERE short_url = $1",
+		shortURL,
+	).Scan(&originalURL)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", repository.ErrNotFound
+		}
+
+		return "", err
+	}
+
+	return originalURL, nil
 }

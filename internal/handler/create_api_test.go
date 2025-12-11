@@ -14,6 +14,7 @@ import (
 	"github.com/MarkelovSergey/url-shorter/internal/service/healthservice"
 	"github.com/MarkelovSergey/url-shorter/internal/service/urlshorterservice"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"go.uber.org/zap"
 )
 
@@ -50,7 +51,7 @@ func TestCreateAPIHandler(t *testing.T) {
 			contentType: "application/json",
 			body:        `{"url":"https://practicum.yandex.ru"}`,
 			mockSetup: func(m *urlshorterservice.MockURLShorterService) {
-				m.EXPECT().Generate(originalURL).Return(shortID, nil)
+				m.EXPECT().Generate(mock.Anything, originalURL).Return(shortID, nil)
 			},
 			expectedStatus: http.StatusCreated,
 			expectedBody:   expectedShortURL,
@@ -97,7 +98,7 @@ func TestCreateAPIHandler(t *testing.T) {
 			contentType: "application/json",
 			body:        `{"url":"https://practicum.yandex.ru"}`,
 			mockSetup: func(m *urlshorterservice.MockURLShorterService) {
-				m.EXPECT().Generate(originalURL).Return(shortID, service.ErrURLConflict)
+				m.EXPECT().Generate(mock.Anything, originalURL).Return(shortID, service.ErrURLConflict)
 			},
 			expectedStatus: http.StatusConflict,
 			expectedBody:   expectedShortURL,

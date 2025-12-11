@@ -1,6 +1,7 @@
 package filestorage
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -19,7 +20,7 @@ func New(filePath string) storage.Storage {
 	}
 }
 
-func (fs *fileStorage) Load() ([]model.URLRecord, error) {
+func (fs *fileStorage) Load(ctx context.Context) ([]model.URLRecord, error) {
 	data, err := os.ReadFile(fs.filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -41,8 +42,8 @@ func (fs *fileStorage) Load() ([]model.URLRecord, error) {
 	return records, nil
 }
 
-func (fs *fileStorage) Append(record model.URLRecord) error {
-	records, err := fs.Load()
+func (fs *fileStorage) Append(ctx context.Context, record model.URLRecord) error {
+	records, err := fs.Load(ctx)
 	if err != nil {
 		return err
 	}
@@ -52,12 +53,12 @@ func (fs *fileStorage) Append(record model.URLRecord) error {
 	return fs.save(records)
 }
 
-func (fs *fileStorage) AppendBatch(newRecords []model.URLRecord) error {
+func (fs *fileStorage) AppendBatch(ctx context.Context, newRecords []model.URLRecord) error {
 	if len(newRecords) == 0 {
 		return nil
 	}
 
-	records, err := fs.Load()
+	records, err := fs.Load(ctx)
 	if err != nil {
 		return err
 	}
@@ -67,8 +68,8 @@ func (fs *fileStorage) AppendBatch(newRecords []model.URLRecord) error {
 	return fs.save(records)
 }
 
-func (fs *fileStorage) FindByOriginalURL(originalURL string) (string, error) {
-	records, err := fs.Load()
+func (fs *fileStorage) FindByOriginalURL(ctx context.Context, originalURL string) (string, error) {
+	records, err := fs.Load(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -76,6 +77,21 @@ func (fs *fileStorage) FindByOriginalURL(originalURL string) (string, error) {
 	for _, record := range records {
 		if record.OriginalURL == originalURL {
 			return record.ShortURL, nil
+		}
+	}
+
+	return "", nil
+}
+
+func (fs *fileStorage) FindByShortURL(ctx context.Context, shortURL string) (string, error) {
+	records, err := fs.Load(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	for _, record := range records {
+		if record.ShortURL == shortURL {
+			return record.OriginalURL, nil
 		}
 	}
 
