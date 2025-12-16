@@ -2,12 +2,14 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
 
 	"github.com/MarkelovSergey/url-shorter/internal/model"
+	"github.com/MarkelovSergey/url-shorter/internal/service"
 	"go.uber.org/zap"
 )
 
@@ -46,16 +48,10 @@ func (h *handler) CreateAPIHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	us, err := h.urlShorterService.Generate(req.URL)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(err.Error()))
+	us, err := h.urlShorterService.Generate(r.Context(), req.URL)
 
-		return
-	}
-
-	shortURL, err := url.JoinPath(h.config.BaseURL, us)
-	if err != nil {
+	shortURL, joinErr := url.JoinPath(h.config.BaseURL, us)
+	if joinErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("invalid URL format"))
 
@@ -63,14 +59,14 @@ func (h *handler) CreateAPIHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := model.Response{Result: shortURL}
-	jsonResp, err := json.Marshal(resp)
-	if err != nil {
+	jsonResp, marshalErr := json.Marshal(resp)
+	if marshalErr != nil {
 		h.logger.Error("failed to marshal JSON response",
-			zap.Error(err),
+			zap.Error(marshalErr),
 			zap.String("method", r.Method),
 			zap.String("path", r.URL.Path),
 		)
-		
+
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
 
@@ -78,6 +74,21 @@ func (h *handler) CreateAPIHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+
+	if err != nil {
+		if errors.Is(err, service.ErrURLConflict) {
+			w.WriteHeader(http.StatusConflict)
+			w.Write(jsonResp)
+
+			return
+		}
+
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(err.Error()))
+
+		return
+	}
+
 	w.WriteHeader(http.StatusCreated)
 	w.Write(jsonResp)
 }

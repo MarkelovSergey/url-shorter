@@ -1,10 +1,13 @@
 package handler
 
 import (
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/MarkelovSergey/url-shorter/internal/service"
 )
 
 func (h *handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
@@ -35,18 +38,26 @@ func (h *handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	us, err := h.urlShorterService.Generate(u)
-	if err != nil {
+	us, err := h.urlShorterService.Generate(r.Context(), u)
+
+	shortURL, joinErr := url.JoinPath(h.config.BaseURL, us)
+	if joinErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(err.Error()))
+		w.Write([]byte("invalid URL format"))
 
 		return
 	}
 
-	shortURL, err := url.JoinPath(h.config.BaseURL, us)
 	if err != nil {
+		if errors.Is(err, service.ErrURLConflict) {
+			w.WriteHeader(http.StatusConflict)
+			w.Write([]byte(shortURL))
+
+			return
+		}
+
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("invalid URL format"))
+		w.Write([]byte(err.Error()))
 
 		return
 	}

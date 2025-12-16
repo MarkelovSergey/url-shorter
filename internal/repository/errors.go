@@ -3,6 +3,7 @@ package repository
 import "errors"
 
 var (
-	ErrURLAlreadyExists  = errors.New("URL already exists")
-	ErrNotFound          = errors.New("not found")
+	ErrShortCodeAlreadyExist = errors.New("shortcode already exists")
+	ErrNotFound              = errors.New("not found")
+	ErrURLAlreadyExists      = errors.New("original URL already exists")
 )

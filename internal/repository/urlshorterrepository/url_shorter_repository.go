@@ -1,42 +1,38 @@
 package urlshorterrepository
 
 import (
+	"context"
+	"errors"
 	"strconv"
 	"sync"
 
 	"github.com/MarkelovSergey/url-shorter/internal/model"
 	"github.com/MarkelovSergey/url-shorter/internal/repository"
-	"github.com/MarkelovSergey/url-shorter/internal/storage/filestorage"
+	"github.com/MarkelovSergey/url-shorter/internal/storage"
 )
 
 type URLShorterRepository interface {
-	Add(shortCode, url string) (string, error)
-	Find(shortCode string) (string, error)
+	Add(ctx context.Context, shortCode, url string) (string, error)
+	Find(ctx context.Context, shortCode string) (string, error)
+	AddBatch(ctx context.Context, urls map[string]string) ([]string, error)
 }
 
 type urlShorterRepository struct {
-	urls       map[string]string
-	shortCodes map[string]string
-	mu         *sync.Mutex
-	storage    filestorage.Storage
-	counter    int
+	mu      *sync.Mutex
+	storage storage.Storage
+	counter int
 }
 
-func New(storage filestorage.Storage) URLShorterRepository {
+func New(storage storage.Storage) URLShorterRepository {
 	repo := &urlShorterRepository{
-		urls:       make(map[string]string),
-		shortCodes: make(map[string]string),
-		mu:         &sync.Mutex{},
-		storage:    storage,
-		counter:    0,
+		mu:      &sync.Mutex{},
+		storage: storage,
+		counter: 0,
 	}
 
-	records, err := storage.Load()
+	records, err := storage.Load(context.Background())
 	if err == nil {
 		for _, record := range records {
-			repo.urls[record.ShortURL] = record.OriginalURL
-			repo.shortCodes[record.OriginalURL] = record.ShortURL
-
 			if uuid, err := strconv.Atoi(record.UUID); err == nil && uuid > repo.counter {
 				repo.counter = uuid
 			}
@@ -46,51 +42,88 @@ func New(storage filestorage.Storage) URLShorterRepository {
 	return repo
 }
 
-func (r *urlShorterRepository) Add(shortCode, url string) (string, error) {
+func (r *urlShorterRepository) Add(ctx context.Context, shortCode, url string) (string, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if existingURL, exists := r.urls[shortCode]; exists {
-		if existingURL != url {
-			return "", repository.ErrURLAlreadyExists
-		}
-
-		return shortCode, nil
+	existingShortCode, err := r.storage.FindByOriginalURL(ctx, url)
+	if err == nil && existingShortCode != "" {
+		return existingShortCode, repository.ErrURLAlreadyExists
 	}
-
-	if existingShortCode, exists := r.shortCodes[url]; exists {
-		return existingShortCode, nil
-	}
-
-	r.urls[shortCode] = url
-	r.shortCodes[url] = shortCode
 
 	r.counter++
+
 	record := model.URLRecord{
 		UUID:        strconv.Itoa(r.counter),
 		ShortURL:    shortCode,
 		OriginalURL: url,
 	}
 
-	if err := r.storage.Append(record); err != nil {
-		delete(r.urls, shortCode)
-		delete(r.shortCodes, url)
+	if err := r.storage.Append(ctx, record); err != nil {
 		r.counter--
-		
+
+		if errors.Is(err, repository.ErrURLAlreadyExists) {
+			existingShortCode, findErr := r.storage.FindByOriginalURL(ctx, url)
+			if findErr == nil && existingShortCode != "" {
+				return existingShortCode, repository.ErrURLAlreadyExists
+			}
+		}
+
 		return "", err
 	}
 
 	return shortCode, nil
 }
 
-func (r *urlShorterRepository) Find(shortCode string) (string, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+func (r *urlShorterRepository) Find(ctx context.Context, shortCode string) (string, error) {
+	originalURL, err := r.storage.FindByShortURL(ctx, shortCode)
+	if err != nil {
+		return "", err
+	}
 
-	v, ok := r.urls[shortCode]
-	if !ok {
+	if originalURL == "" {
 		return "", repository.ErrNotFound
 	}
 
-	return v, nil
+	return originalURL, nil
+}
+
+func (r *urlShorterRepository) AddBatch(ctx context.Context, urls map[string]string) ([]string, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if len(urls) == 0 {
+		return []string{}, nil
+	}
+
+	shortCodes := make([]string, 0, len(urls))
+	records := make([]model.URLRecord, 0, len(urls))
+
+	for shortCode, url := range urls {
+		existingShortCode, err := r.storage.FindByOriginalURL(ctx, url)
+		if err == nil && existingShortCode != "" {
+			shortCodes = append(shortCodes, existingShortCode)
+			continue
+		}
+
+		r.counter++
+
+		record := model.URLRecord{
+			UUID:        strconv.Itoa(r.counter),
+			ShortURL:    shortCode,
+			OriginalURL: url,
+		}
+
+		records = append(records, record)
+		shortCodes = append(shortCodes, shortCode)
+	}
+
+	if len(records) > 0 {
+		if err := r.storage.AppendBatch(ctx, records); err != nil {
+			r.counter -= len(records)
+			return nil, err
+		}
+	}
+
+	return shortCodes, nil
 }

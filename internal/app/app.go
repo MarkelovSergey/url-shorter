@@ -12,30 +12,69 @@ import (
 	"github.com/MarkelovSergey/url-shorter/internal/config"
 	"github.com/MarkelovSergey/url-shorter/internal/handler"
 	"github.com/MarkelovSergey/url-shorter/internal/middleware"
+	"github.com/MarkelovSergey/url-shorter/internal/migration"
+	"github.com/MarkelovSergey/url-shorter/internal/repository/healthrepository"
 	"github.com/MarkelovSergey/url-shorter/internal/repository/urlshorterrepository"
+	"github.com/MarkelovSergey/url-shorter/internal/service/healthservice"
 	"github.com/MarkelovSergey/url-shorter/internal/service/urlshorterservice"
+	"github.com/MarkelovSergey/url-shorter/internal/storage"
 	"github.com/MarkelovSergey/url-shorter/internal/storage/filestorage"
+	"github.com/MarkelovSergey/url-shorter/internal/storage/memorystorage"
+	"github.com/MarkelovSergey/url-shorter/internal/storage/postgresstorage"
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
 
 type App struct {
 	server *http.Server
+	dbPool *pgxpool.Pool
+	logger *zap.Logger
 }
 
 func New(cfg config.Config) *App {
+	var (
+		pool       *pgxpool.Pool
+		urlStorage storage.Storage
+		err        error
+	)
+
 	logger, err := zap.NewProduction()
 	if err != nil {
 		log.Fatalf("Failed to initialize logger: %v", err)
 	}
-	defer logger.Sync()
 
-	storage := filestorage.New(cfg.FileStoragePath)
+	if cfg.DatabaseDSN != "" {
+		if err := migration.RunMigrations(cfg.DatabaseDSN); err != nil {
+			log.Fatalf("Warning: Failed to run migrations: %v", err)
+		}
 
-	urlShorterRepo := urlshorterrepository.New(storage)
-	urlShorterService := urlshorterservice.New(urlShorterRepo)
+		pool, err = pgxpool.New(context.Background(), cfg.DatabaseDSN)
+		if err != nil {
+			log.Fatalf("Warning: Failed to connect to database: %v", err)
+		}
 
-	handler := handler.New(cfg, urlShorterService, logger)
+		urlStorage = postgresstorage.New(pool)
+		log.Println("Using PostgreSQL storage")
+	}
+
+	if urlStorage == nil && cfg.FileStoragePath != "" {
+		urlStorage = filestorage.New(cfg.FileStoragePath)
+		log.Printf("Using file storage: %s", cfg.FileStoragePath)
+	}
+
+	if urlStorage == nil {
+		urlStorage = memorystorage.New()
+		log.Println("Using memory storage")
+	}
+
+	urlShorterRepo := urlshorterrepository.New(urlStorage)
+	healthRepo := healthrepository.New(pool)
+
+	healthService := healthservice.New(healthRepo)
+	urlShorterService := urlshorterservice.New(urlShorterRepo, healthRepo)
+
+	handler := handler.New(cfg, urlShorterService, healthService, logger)
 	r := chi.NewRouter()
 	r.Use(middleware.Logging(logger))
 	r.Use(middleware.Gzipping)
@@ -43,13 +82,19 @@ func New(cfg config.Config) *App {
 	r.Post("/", handler.CreateHandler)
 	r.Get("/{id}", handler.ReadHandler)
 	r.Post("/api/shorten", handler.CreateAPIHandler)
+	r.Post("/api/shorten/batch", handler.CreateBatchHandler)
+	r.Get("/ping", handler.PingHandler)
 
 	srv := &http.Server{
 		Addr:    cfg.ServerAddress,
 		Handler: r,
 	}
 
-	return &App{server: srv}
+	return &App{
+		server: srv,
+		dbPool: pool,
+		logger: logger,
+	}
 }
 
 func (a *App) Run() error {
@@ -72,6 +117,13 @@ func (a *App) Run() error {
 
 	if err := a.server.Shutdown(shutdownCtx); err != nil {
 		return fmt.Errorf("server shutdown failed: %w", err)
+	}
+
+	if a.dbPool != nil {
+		a.dbPool.Close()
+	}
+	if a.logger != nil {
+		a.logger.Sync()
 	}
 
 	log.Println("Server exited gracefully")
