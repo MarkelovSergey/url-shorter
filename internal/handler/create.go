@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/MarkelovSergey/url-shorter/internal/middleware"
 	"github.com/MarkelovSergey/url-shorter/internal/service"
 )
 
@@ -38,7 +39,8 @@ func (h *handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	us, err := h.urlShorterService.Generate(r.Context(), u)
+	userID, _ := middleware.GetUserID(r.Context())
+	us, err := h.urlShorterService.Generate(r.Context(), u, userID)
 
 	shortURL, joinErr := url.JoinPath(h.config.BaseURL, us)
 	if joinErr != nil {

@@ -98,6 +98,22 @@ func (fs *fileStorage) FindByShortURL(ctx context.Context, shortURL string) (str
 	return "", nil
 }
 
+func (fs *fileStorage) FindByUserID(ctx context.Context, userID string) ([]model.URLRecord, error) {
+	records, err := fs.Load(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]model.URLRecord, 0)
+	for _, record := range records {
+		if record.UserID == userID {
+			result = append(result, record)
+		}
+	}
+
+	return result, nil
+}
+
 func (fs *fileStorage) save(records []model.URLRecord) error {
 	dir := filepath.Dir(fs.filePath)
 	if err := os.MkdirAll(dir, 0755); err != nil {

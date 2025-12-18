@@ -27,7 +27,7 @@ func (ps *postgresStorage) Load(ctx context.Context) ([]model.URLRecord, error) 
 	}
 
 	rows, err := ps.pool.Query(ctx,
-		"SELECT uuid, short_url, original_url FROM urls")
+		"SELECT uuid, short_url, original_url, COALESCE(user_id, '') FROM urls")
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +36,7 @@ func (ps *postgresStorage) Load(ctx context.Context) ([]model.URLRecord, error) 
 	var records []model.URLRecord
 	for rows.Next() {
 		var record model.URLRecord
-		if err := rows.Scan(&record.UUID, &record.ShortURL, &record.OriginalURL); err != nil {
+		if err := rows.Scan(&record.UUID, &record.ShortURL, &record.OriginalURL, &record.UserID); err != nil {
 			return nil, err
 		}
 		records = append(records, record)
@@ -55,8 +55,8 @@ func (ps *postgresStorage) Append(ctx context.Context, record model.URLRecord) e
 	}
 
 	_, err := ps.pool.Exec(ctx,
-		"INSERT INTO urls (uuid, short_url, original_url) VALUES ($1, $2, $3)",
-		record.UUID, record.ShortURL, record.OriginalURL)
+		"INSERT INTO urls (uuid, short_url, original_url, user_id) VALUES ($1, $2, $3, $4)",
+		record.UUID, record.ShortURL, record.OriginalURL, record.UserID)
 
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
@@ -78,8 +78,8 @@ func (ps *postgresStorage) AppendBatch(ctx context.Context, records []model.URLR
 	batch := &pgx.Batch{}
 	for _, record := range records {
 		batch.Queue(
-			"INSERT INTO urls (uuid, short_url, original_url) VALUES ($1, $2, $3)",
-			record.UUID, record.ShortURL, record.OriginalURL,
+			"INSERT INTO urls (uuid, short_url, original_url, user_id) VALUES ($1, $2, $3, $4)",
+			record.UUID, record.ShortURL, record.OriginalURL, record.UserID,
 		)
 	}
 
@@ -139,4 +139,33 @@ func (ps *postgresStorage) FindByShortURL(ctx context.Context, shortURL string) 
 	}
 
 	return originalURL, nil
+}
+
+func (ps *postgresStorage) FindByUserID(ctx context.Context, userID string) ([]model.URLRecord, error) {
+	if ps.pool == nil {
+		return nil, errors.New("database connection is nil")
+	}
+
+	rows, err := ps.pool.Query(ctx,
+		"SELECT uuid, short_url, original_url, COALESCE(user_id, '') FROM urls WHERE user_id = $1",
+		userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var records []model.URLRecord
+	for rows.Next() {
+		var record model.URLRecord
+		if err := rows.Scan(&record.UUID, &record.ShortURL, &record.OriginalURL, &record.UserID); err != nil {
+			return nil, err
+		}
+		records = append(records, record)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return records, nil
 }

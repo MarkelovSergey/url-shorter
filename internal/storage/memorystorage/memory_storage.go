@@ -55,3 +55,14 @@ func (ms *memoryStorage) FindByShortURL(ctx context.Context, shortURL string) (s
 
 	return "", nil
 }
+
+func (ms *memoryStorage) FindByUserID(ctx context.Context, userID string) ([]model.URLRecord, error) {
+	result := make([]model.URLRecord, 0)
+	for _, record := range ms.records {
+		if record.UserID == userID {
+			result = append(result, record)
+		}
+	}
+	
+	return result, nil
+}

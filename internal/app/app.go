@@ -78,11 +78,13 @@ func New(cfg config.Config) *App {
 	r := chi.NewRouter()
 	r.Use(middleware.Logging(logger))
 	r.Use(middleware.Gzipping)
+	r.Use(middleware.Auth)
 
 	r.Post("/", handler.CreateHandler)
 	r.Get("/{id}", handler.ReadHandler)
 	r.Post("/api/shorten", handler.CreateAPIHandler)
 	r.Post("/api/shorten/batch", handler.CreateBatchHandler)
+	r.Get("/api/user/urls", handler.GetUserURLsHandler)
 	r.Get("/ping", handler.PingHandler)
 
 	srv := &http.Server{

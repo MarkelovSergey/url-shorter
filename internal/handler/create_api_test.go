@@ -51,7 +51,7 @@ func TestCreateAPIHandler(t *testing.T) {
 			contentType: "application/json",
 			body:        `{"url":"https://practicum.yandex.ru"}`,
 			mockSetup: func(m *urlshorterservice.MockURLShorterService) {
-				m.EXPECT().Generate(mock.Anything, originalURL).Return(shortID, nil)
+				m.EXPECT().Generate(mock.Anything, originalURL, mock.Anything).Return(shortID, nil)
 			},
 			expectedStatus: http.StatusCreated,
 			expectedBody:   expectedShortURL,
@@ -98,7 +98,7 @@ func TestCreateAPIHandler(t *testing.T) {
 			contentType: "application/json",
 			body:        `{"url":"https://practicum.yandex.ru"}`,
 			mockSetup: func(m *urlshorterservice.MockURLShorterService) {
-				m.EXPECT().Generate(mock.Anything, originalURL).Return(shortID, service.ErrURLConflict)
+				m.EXPECT().Generate(mock.Anything, originalURL, mock.Anything).Return(shortID, service.ErrURLConflict)
 			},
 			expectedStatus: http.StatusConflict,
 			expectedBody:   expectedShortURL,
