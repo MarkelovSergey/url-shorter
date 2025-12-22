@@ -16,6 +16,7 @@ type URLShorterRepository interface {
 	Find(ctx context.Context, shortCode string) (string, error)
 	AddBatch(ctx context.Context, urls map[string]string, userID string) ([]string, error)
 	GetUserURLs(ctx context.Context, userID string) ([]model.URLRecord, error)
+	DeleteBatch(ctx context.Context, shortURLs []string, userID string) error
 }
 
 type urlShorterRepository struct {
@@ -133,4 +134,8 @@ func (r *urlShorterRepository) AddBatch(ctx context.Context, urls map[string]str
 
 func (r *urlShorterRepository) GetUserURLs(ctx context.Context, userID string) ([]model.URLRecord, error) {
 	return r.storage.FindByUserID(ctx, userID)
+}
+
+func (r *urlShorterRepository) DeleteBatch(ctx context.Context, shortURLs []string, userID string) error {
+	return r.storage.DeleteBatch(ctx, shortURLs, userID)
 }

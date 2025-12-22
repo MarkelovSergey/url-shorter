@@ -38,6 +38,115 @@ func (_m *MockURLShorterService) EXPECT() *MockURLShorterService_Expecter {
 	return &MockURLShorterService_Expecter{mock: &_m.Mock}
 }
 
+// DeleteURLsAsync provides a mock function for the type MockURLShorterService
+func (_mock *MockURLShorterService) DeleteURLsAsync(shortURLs []string, userID string) {
+	_mock.Called(shortURLs, userID)
+	return
+}
+
+// MockURLShorterService_DeleteURLsAsync_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteURLsAsync'
+type MockURLShorterService_DeleteURLsAsync_Call struct {
+	*mock.Call
+}
+
+// DeleteURLsAsync is a helper method to define mock.On call
+//   - shortURLs []string
+//   - userID string
+func (_e *MockURLShorterService_Expecter) DeleteURLsAsync(shortURLs interface{}, userID interface{}) *MockURLShorterService_DeleteURLsAsync_Call {
+	return &MockURLShorterService_DeleteURLsAsync_Call{Call: _e.mock.On("DeleteURLsAsync", shortURLs, userID)}
+}
+
+func (_c *MockURLShorterService_DeleteURLsAsync_Call) Run(run func(shortURLs []string, userID string)) *MockURLShorterService_DeleteURLsAsync_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 []string
+		if args[0] != nil {
+			arg0 = args[0].([]string)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockURLShorterService_DeleteURLsAsync_Call) Return() *MockURLShorterService_DeleteURLsAsync_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *MockURLShorterService_DeleteURLsAsync_Call) RunAndReturn(run func(shortURLs []string, userID string)) *MockURLShorterService_DeleteURLsAsync_Call {
+	_c.Run(run)
+	return _c
+}
+
+// DeleteURLsBatch provides a mock function for the type MockURLShorterService
+func (_mock *MockURLShorterService) DeleteURLsBatch(ctx context.Context, shortURLs []string, userID string) error {
+	ret := _mock.Called(ctx, shortURLs, userID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteURLsBatch")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, []string, string) error); ok {
+		r0 = returnFunc(ctx, shortURLs, userID)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockURLShorterService_DeleteURLsBatch_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteURLsBatch'
+type MockURLShorterService_DeleteURLsBatch_Call struct {
+	*mock.Call
+}
+
+// DeleteURLsBatch is a helper method to define mock.On call
+//   - ctx context.Context
+//   - shortURLs []string
+//   - userID string
+func (_e *MockURLShorterService_Expecter) DeleteURLsBatch(ctx interface{}, shortURLs interface{}, userID interface{}) *MockURLShorterService_DeleteURLsBatch_Call {
+	return &MockURLShorterService_DeleteURLsBatch_Call{Call: _e.mock.On("DeleteURLsBatch", ctx, shortURLs, userID)}
+}
+
+func (_c *MockURLShorterService_DeleteURLsBatch_Call) Run(run func(ctx context.Context, shortURLs []string, userID string)) *MockURLShorterService_DeleteURLsBatch_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 []string
+		if args[1] != nil {
+			arg1 = args[1].([]string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockURLShorterService_DeleteURLsBatch_Call) Return(err error) *MockURLShorterService_DeleteURLsBatch_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockURLShorterService_DeleteURLsBatch_Call) RunAndReturn(run func(ctx context.Context, shortURLs []string, userID string) error) *MockURLShorterService_DeleteURLsBatch_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Generate provides a mock function for the type MockURLShorterService
 func (_mock *MockURLShorterService) Generate(ctx context.Context, url string, userID string) (string, error) {
 	ret := _mock.Called(ctx, url, userID)

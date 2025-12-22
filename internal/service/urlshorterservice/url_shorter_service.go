@@ -5,12 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"time"
 
 	"github.com/MarkelovSergey/url-shorter/internal/model"
 	"github.com/MarkelovSergey/url-shorter/internal/repository"
 	"github.com/MarkelovSergey/url-shorter/internal/repository/healthrepository"
 	"github.com/MarkelovSergey/url-shorter/internal/repository/urlshorterrepository"
 	"github.com/MarkelovSergey/url-shorter/internal/service"
+	"go.uber.org/zap"
 )
 
 const (
@@ -19,31 +21,43 @@ const (
 	charset             = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-"
 )
 
+type deleteJob struct {
+	shortURL string
+	userID   string
+}
+
 type URLShorterService interface {
 	GetOriginalURL(ctx context.Context, id string) (string, error)
 	Generate(ctx context.Context, url, userID string) (string, error)
 	GenerateBatch(ctx context.Context, urls []string, userID string) ([]string, error)
 	GetUserURLs(ctx context.Context, userID string) ([]model.URLRecord, error)
+	DeleteURLsAsync(shortURLs []string, userID string)
 }
 
 type urlShorterService struct {
 	urlShorterRepo urlshorterrepository.URLShorterRepository
 	healthRepo     healthrepository.HealthRepository
+	logger         *zap.Logger
 }
 
 func New(
 	urlShorterRepo urlshorterrepository.URLShorterRepository,
 	healthRepo healthrepository.HealthRepository,
+	logger *zap.Logger,
 ) URLShorterService {
 	return &urlShorterService{
-		urlShorterRepo: urlShorterRepo,
-		healthRepo:     healthRepo,
+		urlShorterRepo,
+		healthRepo,
+		logger,
 	}
 }
 
 func (s *urlShorterService) GetOriginalURL(ctx context.Context, shortCode string) (string, error) {
 	url, err := s.urlShorterRepo.Find(ctx, shortCode)
 	if err != nil {
+		if errors.Is(err, repository.ErrDeleted) {
+			return "", service.ErrURLDeleted
+		}
 		if errors.Is(err, repository.ErrNotFound) {
 			return "", fmt.Errorf("%w: %s", service.ErrFindShortCode, shortCode)
 		}
@@ -104,6 +118,66 @@ func (s *urlShorterService) GenerateBatch(ctx context.Context, urls []string, us
 
 func (s *urlShorterService) GetUserURLs(ctx context.Context, userID string) ([]model.URLRecord, error) {
 	return s.urlShorterRepo.GetUserURLs(ctx, userID)
+}
+
+func (s *urlShorterService) DeleteURLsAsync(shortURLs []string, userID string) {
+	go s.deleteURLsAsyncWorker(shortURLs, userID)
+}
+
+func (s *urlShorterService) deleteURLsAsyncWorker(shortURLs []string, userID string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	jobs := make(chan deleteJob, len(shortURLs))
+
+	for _, shortURL := range shortURLs {
+		jobs <- deleteJob{
+			shortURL: shortURL,
+			userID:   userID,
+		}
+	}
+	close(jobs)
+
+	const batchSize = 100
+	const flushInterval = 5 * time.Second
+
+	batch := make([]string, 0, batchSize)
+	ticker := time.NewTicker(flushInterval)
+	defer ticker.Stop()
+
+	flushBatch := func() {
+		if len(batch) > 0 {
+			if err := s.urlShorterRepo.DeleteBatch(ctx, shortURLs, userID); err != nil {
+				s.logger.Error("Failed to delete URLs batch: " + err.Error())
+			}
+
+			batch = make([]string, 0, batchSize)
+		}
+	}
+
+	for {
+		select {
+		case job, ok := <-jobs:
+			if !ok {
+				flushBatch()
+
+				return
+			}
+
+			batch = append(batch, job.shortURL)
+			if len(batch) >= batchSize {
+				flushBatch()
+			}
+
+		case <-ticker.C:
+			flushBatch()
+
+		case <-ctx.Done():
+			flushBatch()
+
+			return
+		}
+	}
 }
 
 func (s *urlShorterService) generateRandomShortCode() string {

@@ -17,7 +17,7 @@ const (
 
 type contextKey string
 
-const userIDKey contextKey = "userID"
+const UserIDKey contextKey = "userID"
 
 func Auth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -42,13 +42,13 @@ func Auth(next http.Handler) http.Handler {
 			})
 		}
 
-		ctx := context.WithValue(r.Context(), userIDKey, userID)
+		ctx := context.WithValue(r.Context(), UserIDKey, userID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
 func GetUserID(ctx context.Context) (string, bool) {
-	userID, ok := ctx.Value(userIDKey).(string)
+	userID, ok := ctx.Value(UserIDKey).(string)
 	
 	return userID, ok
 }

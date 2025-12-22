@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/MarkelovSergey/url-shorter/internal/model"
+	"github.com/MarkelovSergey/url-shorter/internal/repository"
 	"github.com/MarkelovSergey/url-shorter/internal/storage"
 )
 
@@ -49,6 +50,9 @@ func (ms *memoryStorage) FindByOriginalURL(ctx context.Context, originalURL stri
 func (ms *memoryStorage) FindByShortURL(ctx context.Context, shortURL string) (string, error) {
 	for _, record := range ms.records {
 		if record.ShortURL == shortURL {
+			if record.IsDeleted {
+				return "", repository.ErrDeleted
+			}
 			return record.OriginalURL, nil
 		}
 	}
@@ -65,4 +69,19 @@ func (ms *memoryStorage) FindByUserID(ctx context.Context, userID string) ([]mod
 	}
 	
 	return result, nil
+}
+
+func (ms *memoryStorage) DeleteBatch(ctx context.Context, shortURLs []string, userID string) error {
+	urlsMap := make(map[string]bool)
+	for _, url := range shortURLs {
+		urlsMap[url] = true
+	}
+
+	for i := range ms.records {
+		if ms.records[i].UserID == userID && urlsMap[ms.records[i].ShortURL] {
+			ms.records[i].IsDeleted = true
+		}
+	}
+
+	return nil
 }
