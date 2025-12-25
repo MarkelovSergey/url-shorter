@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/MarkelovSergey/url-shorter/internal/config"
+	"github.com/MarkelovSergey/url-shorter/internal/middleware"
 	"github.com/MarkelovSergey/url-shorter/internal/model"
 	"github.com/MarkelovSergey/url-shorter/internal/service/healthservice"
 	"github.com/MarkelovSergey/url-shorter/internal/service/urlshorterservice"
@@ -111,6 +112,11 @@ func TestCreateBatchHandler(t *testing.T) {
 
 			req := httptest.NewRequest(http.MethodPost, "/api/shorten/batch", bytes.NewReader(body))
 			req.Header.Set("Content-Type", test.contentType)
+			
+			// Add userID to context
+			ctx := middleware.SetUserID(req.Context(), "test-user-123")
+			req = req.WithContext(ctx)
+			
 			w := httptest.NewRecorder()
 
 			h.CreateBatchHandler(w, req)
@@ -149,6 +155,10 @@ func TestCreateBatchHandlerServiceError(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/api/shorten/batch", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	
+	ctx := middleware.SetUserID(req.Context(), "test-user-123")
+	req = req.WithContext(ctx)
+	
 	w := httptest.NewRecorder()
 
 	h.CreateBatchHandler(w, req)

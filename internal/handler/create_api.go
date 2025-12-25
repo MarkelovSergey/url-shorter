@@ -49,7 +49,13 @@ func (h *handler) CreateAPIHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, _ := middleware.GetUserID(r.Context())
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok || userID == "" {
+		w.WriteHeader(http.StatusUnauthorized)
+
+		return
+	}
+
 	us, err := h.urlShorterService.Generate(r.Context(), req.URL, userID)
 
 	shortURL, joinErr := url.JoinPath(h.config.BaseURL, us)

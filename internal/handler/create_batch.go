@@ -68,7 +68,13 @@ func (h *handler) CreateBatchHandler(w http.ResponseWriter, r *http.Request) {
 		correlationIDs = append(correlationIDs, req.CorrelationID)
 	}
 
-	userID, _ := middleware.GetUserID(r.Context())
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok || userID == "" {
+		w.WriteHeader(http.StatusUnauthorized)
+
+		return
+	}
+
 	shortCodes, err := h.urlShorterService.GenerateBatch(r.Context(), urls, userID)
 	if err != nil {
 		h.logger.Error("failed to generate batch short codes",

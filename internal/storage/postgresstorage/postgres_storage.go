@@ -22,10 +22,6 @@ func New(pool *pgxpool.Pool) storage.Storage {
 }
 
 func (ps *postgresStorage) Load(ctx context.Context) ([]model.URLRecord, error) {
-	if ps.pool == nil {
-		return nil, errors.New("database connection is nil")
-	}
-
 	rows, err := ps.pool.Query(ctx,
 		"SELECT uuid, short_url, original_url, COALESCE(user_id, ''), COALESCE(is_deleted, false) FROM urls")
 	if err != nil {
@@ -50,10 +46,6 @@ func (ps *postgresStorage) Load(ctx context.Context) ([]model.URLRecord, error) 
 }
 
 func (ps *postgresStorage) Append(ctx context.Context, record model.URLRecord) error {
-	if ps.pool == nil {
-		return errors.New("database connection is nil")
-	}
-
 	_, err := ps.pool.Exec(ctx,
 		"INSERT INTO urls (uuid, short_url, original_url, user_id) VALUES ($1, $2, $3, $4)",
 		record.UUID, record.ShortURL, record.OriginalURL, record.UserID)
@@ -67,10 +59,6 @@ func (ps *postgresStorage) Append(ctx context.Context, record model.URLRecord) e
 }
 
 func (ps *postgresStorage) AppendBatch(ctx context.Context, records []model.URLRecord) error {
-	if ps.pool == nil {
-		return errors.New("database connection is nil")
-	}
-
 	if len(records) == 0 {
 		return nil
 	}
@@ -96,10 +84,6 @@ func (ps *postgresStorage) AppendBatch(ctx context.Context, records []model.URLR
 }
 
 func (ps *postgresStorage) FindByOriginalURL(ctx context.Context, originalURL string) (string, error) {
-	if ps.pool == nil {
-		return "", errors.New("database connection is nil")
-	}
-
 	var shortURL string
 	err := ps.pool.QueryRow(
 		ctx,
@@ -119,10 +103,6 @@ func (ps *postgresStorage) FindByOriginalURL(ctx context.Context, originalURL st
 }
 
 func (ps *postgresStorage) FindByShortURL(ctx context.Context, shortURL string) (string, error) {
-	if ps.pool == nil {
-		return "", errors.New("database connection is nil")
-	}
-
 	var (
 		originalURL string
 		isDeleted   bool
@@ -150,10 +130,6 @@ func (ps *postgresStorage) FindByShortURL(ctx context.Context, shortURL string) 
 }
 
 func (ps *postgresStorage) FindByUserID(ctx context.Context, userID string) ([]model.URLRecord, error) {
-	if ps.pool == nil {
-		return nil, errors.New("database connection is nil")
-	}
-
 	rows, err := ps.pool.Query(ctx,
 		"SELECT uuid, short_url, original_url, COALESCE(user_id, ''), COALESCE(is_deleted, false) FROM urls WHERE user_id = $1",
 		userID)
@@ -179,10 +155,6 @@ func (ps *postgresStorage) FindByUserID(ctx context.Context, userID string) ([]m
 }
 
 func (ps *postgresStorage) DeleteBatch(ctx context.Context, shortURLs []string, userID string) error {
-	if ps.pool == nil {
-		return errors.New("database connection is nil")
-	}
-
 	if len(shortURLs) == 0 {
 		return nil
 	}

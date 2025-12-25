@@ -2,11 +2,9 @@ package middleware
 
 import (
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
 	"net/http"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
 
@@ -17,7 +15,12 @@ const (
 
 type contextKey string
 
-const UserIDKey contextKey = "userID"
+const userIDKey contextKey = "userID"
+
+type UserClaims struct {
+	UserID string `json:"user_id"`
+	jwt.RegisteredClaims
+}
 
 func Auth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -25,65 +28,69 @@ func Auth(next http.Handler) http.Handler {
 
 		cookie, err := r.Cookie(cookieName)
 		if err == nil && cookie.Value != "" {
-			if id, valid := validateSignedCookie(cookie.Value); valid {
+			if id, valid := validateJWT(cookie.Value); valid {
 				userID = id
 			}
 		}
 
 		if userID == "" {
 			userID = uuid.New().String()
-			signedValue := signCookie(userID)
+			tokenString, err := generateJWT(userID)
+			if err != nil {
+				http.Error(w, "Failed to generate token", http.StatusInternalServerError)
+				
+				return
+			}
 
 			http.SetCookie(w, &http.Cookie{
 				Name:     cookieName,
-				Value:    signedValue,
+				Value:    tokenString,
 				Path:     "/",
 				HttpOnly: true,
 			})
 		}
 
-		ctx := context.WithValue(r.Context(), UserIDKey, userID)
+		ctx := SetUserID(r.Context(), userID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
 func GetUserID(ctx context.Context) (string, bool) {
-	userID, ok := ctx.Value(UserIDKey).(string)
-	
+	userID, ok := ctx.Value(userIDKey).(string)
+
 	return userID, ok
 }
 
-func signCookie(userID string) string {
-	h := hmac.New(sha256.New, []byte(secretKey))
-	h.Write([]byte(userID))
-	signature := hex.EncodeToString(h.Sum(nil))
-
-	return userID + "." + signature
+func SetUserID(ctx context.Context, userID string) context.Context {
+	return context.WithValue(ctx, userIDKey, userID)
 }
 
-func validateSignedCookie(signedValue string) (string, bool) {
-	dotIndex := -1
-	for i := len(signedValue) - 1; i >= 0; i-- {
-		if signedValue[i] == '.' {
-			dotIndex = i
-			break
+func validateJWT(tokenString string) (string, bool) {
+	token, err := jwt.ParseWithClaims(tokenString, &UserClaims{}, func(token *jwt.Token) (any, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, jwt.ErrSignatureInvalid
 		}
-	}
 
-	if dotIndex == -1 || dotIndex == 0 || dotIndex == len(signedValue)-1 {
+		return []byte(secretKey), nil
+	})
+
+	if err != nil {
 		return "", false
 	}
 
-	userID := signedValue[:dotIndex]
-	providedSignature := signedValue[dotIndex+1:]
-
-	h := hmac.New(sha256.New, []byte(secretKey))
-	h.Write([]byte(userID))
-	expectedSignature := hex.EncodeToString(h.Sum(nil))
-
-	if hmac.Equal([]byte(expectedSignature), []byte(providedSignature)) {
-		return userID, true
+	if claims, ok := token.Claims.(*UserClaims); ok && token.Valid {
+		return claims.UserID, true
 	}
 
 	return "", false
+}
+
+func generateJWT(userID string) (string, error) {
+	claims := UserClaims{
+		UserID: userID,
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	return token.SignedString([]byte(secretKey))
 }

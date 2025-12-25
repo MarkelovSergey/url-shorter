@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/MarkelovSergey/url-shorter/internal/model"
@@ -20,11 +21,6 @@ const (
 	maxGenerateAttempts = 10
 	charset             = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-"
 )
-
-type deleteJob struct {
-	shortURL string
-	userID   string
-}
 
 type URLShorterService interface {
 	GetOriginalURL(ctx context.Context, id string) (string, error)
@@ -128,56 +124,23 @@ func (s *urlShorterService) deleteURLsAsyncWorker(shortURLs []string, userID str
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	jobs := make(chan deleteJob, len(shortURLs))
+	const batchSize = 10
+	var wg sync.WaitGroup
 
-	for _, shortURL := range shortURLs {
-		jobs <- deleteJob{
-			shortURL: shortURL,
-			userID:   userID,
-		}
-	}
-	close(jobs)
+	for i := 0; i < len(shortURLs); i += batchSize {
+		end := min(i + batchSize, len(shortURLs))
 
-	const batchSize = 100
-	const flushInterval = 5 * time.Second
-
-	batch := make([]string, 0, batchSize)
-	ticker := time.NewTicker(flushInterval)
-	defer ticker.Stop()
-
-	flushBatch := func() {
-		if len(batch) > 0 {
-			if err := s.urlShorterRepo.DeleteBatch(ctx, shortURLs, userID); err != nil {
-				s.logger.Error("Failed to delete URLs batch: " + err.Error())
+		batch := shortURLs[i:end]
+		wg.Add(1)
+		go func(urls []string) {
+			defer wg.Done()
+			if err := s.urlShorterRepo.DeleteBatch(ctx, urls, userID); err != nil {
+				s.logger.Error("Failed to delete URLs batch", zap.Error(err))
 			}
-
-			batch = make([]string, 0, batchSize)
-		}
+		}(batch)
 	}
 
-	for {
-		select {
-		case job, ok := <-jobs:
-			if !ok {
-				flushBatch()
-
-				return
-			}
-
-			batch = append(batch, job.shortURL)
-			if len(batch) >= batchSize {
-				flushBatch()
-			}
-
-		case <-ticker.C:
-			flushBatch()
-
-		case <-ctx.Done():
-			flushBatch()
-
-			return
-		}
-	}
+	wg.Wait()
 }
 
 func (s *urlShorterService) generateRandomShortCode() string {

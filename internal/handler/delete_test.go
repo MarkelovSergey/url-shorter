@@ -2,11 +2,9 @@ package handler
 
 import (
 	"bytes"
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/MarkelovSergey/url-shorter/internal/config"
 	"github.com/MarkelovSergey/url-shorter/internal/middleware"
@@ -120,7 +118,7 @@ func TestDeleteURLsHandler(t *testing.T) {
 			req.Header.Set("Content-Type", test.contentType)
 
 			if test.userID != "" {
-				ctx := context.WithValue(req.Context(), middleware.UserIDKey, test.userID)
+				ctx := middleware.SetUserID(req.Context(), test.userID)
 				req = req.WithContext(ctx)
 			}
 
@@ -130,10 +128,6 @@ func TestDeleteURLsHandler(t *testing.T) {
 			h.DeleteURLsHandler(w, req)
 
 			assert.Equal(t, test.expectedStatus, w.Code)
-
-			if test.expectedStatus == http.StatusAccepted {
-				time.Sleep(10 * time.Millisecond)
-			}
 		})
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/MarkelovSergey/url-shorter/internal/config"
+	"github.com/MarkelovSergey/url-shorter/internal/middleware"
 	"github.com/MarkelovSergey/url-shorter/internal/service"
 	"github.com/MarkelovSergey/url-shorter/internal/service/healthservice"
 	"github.com/MarkelovSergey/url-shorter/internal/service/urlshorterservice"
@@ -103,6 +104,10 @@ func TestCreateHandler(t *testing.T) {
 
 			req := httptest.NewRequest(test.method, cfg.ServerAddress, strings.NewReader(test.body))
 			req.Header.Set("Content-Type", test.contentType)
+			
+			ctx := middleware.SetUserID(req.Context(), "test-user-123")
+			req = req.WithContext(ctx)
+			
 			w := httptest.NewRecorder()
 
 			h := New(cfg, mockService, mockHealthService, logger)
