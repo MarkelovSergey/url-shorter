@@ -1,8 +1,11 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"strings"
+
+	"github.com/MarkelovSergey/url-shorter/internal/service"
 )
 
 func (h *handler) ReadHandler(w http.ResponseWriter, r *http.Request) {
@@ -19,6 +22,11 @@ func (h *handler) ReadHandler(w http.ResponseWriter, r *http.Request) {
 	id := parts[len(parts)-1]
 	u, err := h.urlShorterService.GetOriginalURL(r.Context(), id)
 	if err != nil {
+		if errors.Is(err, service.ErrURLDeleted) {
+			w.WriteHeader(http.StatusGone)
+			return
+		}
+		
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("ID not found"))
 

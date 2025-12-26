@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/MarkelovSergey/url-shorter/internal/config"
+	"github.com/MarkelovSergey/url-shorter/internal/middleware"
 	"github.com/MarkelovSergey/url-shorter/internal/model"
 	"github.com/MarkelovSergey/url-shorter/internal/service/healthservice"
 	"github.com/MarkelovSergey/url-shorter/internal/service/urlshorterservice"
@@ -38,7 +39,7 @@ func TestCreateBatchHandler(t *testing.T) {
 			},
 			contentType: "application/json",
 			mockSetup: func(m *urlshorterservice.MockURLShorterService) {
-				m.EXPECT().GenerateBatch(mock.Anything, []string{"https://example.com", "https://google.com"}).
+				m.EXPECT().GenerateBatch(mock.Anything, []string{"https://example.com", "https://google.com"}, mock.Anything).
 					Return([]string{"abc12345", "def67890"}, nil)
 			},
 			expectedStatusCode: http.StatusCreated,
@@ -111,6 +112,11 @@ func TestCreateBatchHandler(t *testing.T) {
 
 			req := httptest.NewRequest(http.MethodPost, "/api/shorten/batch", bytes.NewReader(body))
 			req.Header.Set("Content-Type", test.contentType)
+			
+			// Add userID to context
+			ctx := middleware.SetUserID(req.Context(), "test-user-123")
+			req = req.WithContext(ctx)
+			
 			w := httptest.NewRecorder()
 
 			h.CreateBatchHandler(w, req)
@@ -138,7 +144,7 @@ func TestCreateBatchHandlerServiceError(t *testing.T) {
 	mockURLShorterService := new(urlshorterservice.MockURLShorterService)
 	mockHealthService := new(healthservice.MockHealthService)
 
-	mockURLShorterService.EXPECT().GenerateBatch(mock.Anything, mock.Anything).Return([]string{}, assert.AnError)
+	mockURLShorterService.EXPECT().GenerateBatch(mock.Anything, mock.Anything, mock.Anything).Return([]string{}, assert.AnError)
 
 	h := New(cfg, mockURLShorterService, mockHealthService, logger)
 
@@ -149,6 +155,10 @@ func TestCreateBatchHandlerServiceError(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/api/shorten/batch", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	
+	ctx := middleware.SetUserID(req.Context(), "test-user-123")
+	req = req.WithContext(ctx)
+	
 	w := httptest.NewRecorder()
 
 	h.CreateBatchHandler(w, req)

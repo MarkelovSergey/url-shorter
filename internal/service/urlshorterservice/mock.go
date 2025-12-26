@@ -7,6 +7,7 @@ package urlshorterservice
 import (
 	"context"
 
+	"github.com/MarkelovSergey/url-shorter/internal/model"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -37,9 +38,118 @@ func (_m *MockURLShorterService) EXPECT() *MockURLShorterService_Expecter {
 	return &MockURLShorterService_Expecter{mock: &_m.Mock}
 }
 
+// DeleteURLsAsync provides a mock function for the type MockURLShorterService
+func (_mock *MockURLShorterService) DeleteURLsAsync(shortURLs []string, userID string) {
+	_mock.Called(shortURLs, userID)
+	return
+}
+
+// MockURLShorterService_DeleteURLsAsync_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteURLsAsync'
+type MockURLShorterService_DeleteURLsAsync_Call struct {
+	*mock.Call
+}
+
+// DeleteURLsAsync is a helper method to define mock.On call
+//   - shortURLs []string
+//   - userID string
+func (_e *MockURLShorterService_Expecter) DeleteURLsAsync(shortURLs interface{}, userID interface{}) *MockURLShorterService_DeleteURLsAsync_Call {
+	return &MockURLShorterService_DeleteURLsAsync_Call{Call: _e.mock.On("DeleteURLsAsync", shortURLs, userID)}
+}
+
+func (_c *MockURLShorterService_DeleteURLsAsync_Call) Run(run func(shortURLs []string, userID string)) *MockURLShorterService_DeleteURLsAsync_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 []string
+		if args[0] != nil {
+			arg0 = args[0].([]string)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockURLShorterService_DeleteURLsAsync_Call) Return() *MockURLShorterService_DeleteURLsAsync_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *MockURLShorterService_DeleteURLsAsync_Call) RunAndReturn(run func(shortURLs []string, userID string)) *MockURLShorterService_DeleteURLsAsync_Call {
+	_c.Run(run)
+	return _c
+}
+
+// DeleteURLsBatch provides a mock function for the type MockURLShorterService
+func (_mock *MockURLShorterService) DeleteURLsBatch(ctx context.Context, shortURLs []string, userID string) error {
+	ret := _mock.Called(ctx, shortURLs, userID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteURLsBatch")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, []string, string) error); ok {
+		r0 = returnFunc(ctx, shortURLs, userID)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockURLShorterService_DeleteURLsBatch_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteURLsBatch'
+type MockURLShorterService_DeleteURLsBatch_Call struct {
+	*mock.Call
+}
+
+// DeleteURLsBatch is a helper method to define mock.On call
+//   - ctx context.Context
+//   - shortURLs []string
+//   - userID string
+func (_e *MockURLShorterService_Expecter) DeleteURLsBatch(ctx interface{}, shortURLs interface{}, userID interface{}) *MockURLShorterService_DeleteURLsBatch_Call {
+	return &MockURLShorterService_DeleteURLsBatch_Call{Call: _e.mock.On("DeleteURLsBatch", ctx, shortURLs, userID)}
+}
+
+func (_c *MockURLShorterService_DeleteURLsBatch_Call) Run(run func(ctx context.Context, shortURLs []string, userID string)) *MockURLShorterService_DeleteURLsBatch_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 []string
+		if args[1] != nil {
+			arg1 = args[1].([]string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockURLShorterService_DeleteURLsBatch_Call) Return(err error) *MockURLShorterService_DeleteURLsBatch_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockURLShorterService_DeleteURLsBatch_Call) RunAndReturn(run func(ctx context.Context, shortURLs []string, userID string) error) *MockURLShorterService_DeleteURLsBatch_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Generate provides a mock function for the type MockURLShorterService
-func (_mock *MockURLShorterService) Generate(ctx context.Context, url string) (string, error) {
-	ret := _mock.Called(ctx, url)
+func (_mock *MockURLShorterService) Generate(ctx context.Context, url string, userID string) (string, error) {
+	ret := _mock.Called(ctx, url, userID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Generate")
@@ -47,16 +157,16 @@ func (_mock *MockURLShorterService) Generate(ctx context.Context, url string) (s
 
 	var r0 string
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (string, error)); ok {
-		return returnFunc(ctx, url)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) (string, error)); ok {
+		return returnFunc(ctx, url, userID)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) string); ok {
-		r0 = returnFunc(ctx, url)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) string); ok {
+		r0 = returnFunc(ctx, url, userID)
 	} else {
 		r0 = ret.Get(0).(string)
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = returnFunc(ctx, url)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = returnFunc(ctx, url, userID)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -71,11 +181,12 @@ type MockURLShorterService_Generate_Call struct {
 // Generate is a helper method to define mock.On call
 //   - ctx context.Context
 //   - url string
-func (_e *MockURLShorterService_Expecter) Generate(ctx interface{}, url interface{}) *MockURLShorterService_Generate_Call {
-	return &MockURLShorterService_Generate_Call{Call: _e.mock.On("Generate", ctx, url)}
+//   - userID string
+func (_e *MockURLShorterService_Expecter) Generate(ctx interface{}, url interface{}, userID interface{}) *MockURLShorterService_Generate_Call {
+	return &MockURLShorterService_Generate_Call{Call: _e.mock.On("Generate", ctx, url, userID)}
 }
 
-func (_c *MockURLShorterService_Generate_Call) Run(run func(ctx context.Context, url string)) *MockURLShorterService_Generate_Call {
+func (_c *MockURLShorterService_Generate_Call) Run(run func(ctx context.Context, url string, userID string)) *MockURLShorterService_Generate_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -85,9 +196,14 @@ func (_c *MockURLShorterService_Generate_Call) Run(run func(ctx context.Context,
 		if args[1] != nil {
 			arg1 = args[1].(string)
 		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
 		run(
 			arg0,
 			arg1,
+			arg2,
 		)
 	})
 	return _c
@@ -98,14 +214,14 @@ func (_c *MockURLShorterService_Generate_Call) Return(s string, err error) *Mock
 	return _c
 }
 
-func (_c *MockURLShorterService_Generate_Call) RunAndReturn(run func(ctx context.Context, url string) (string, error)) *MockURLShorterService_Generate_Call {
+func (_c *MockURLShorterService_Generate_Call) RunAndReturn(run func(ctx context.Context, url string, userID string) (string, error)) *MockURLShorterService_Generate_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // GenerateBatch provides a mock function for the type MockURLShorterService
-func (_mock *MockURLShorterService) GenerateBatch(ctx context.Context, urls []string) ([]string, error) {
-	ret := _mock.Called(ctx, urls)
+func (_mock *MockURLShorterService) GenerateBatch(ctx context.Context, urls []string, userID string) ([]string, error) {
+	ret := _mock.Called(ctx, urls, userID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GenerateBatch")
@@ -113,18 +229,18 @@ func (_mock *MockURLShorterService) GenerateBatch(ctx context.Context, urls []st
 
 	var r0 []string
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, []string) ([]string, error)); ok {
-		return returnFunc(ctx, urls)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, []string, string) ([]string, error)); ok {
+		return returnFunc(ctx, urls, userID)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, []string) []string); ok {
-		r0 = returnFunc(ctx, urls)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, []string, string) []string); ok {
+		r0 = returnFunc(ctx, urls, userID)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]string)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, []string) error); ok {
-		r1 = returnFunc(ctx, urls)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, []string, string) error); ok {
+		r1 = returnFunc(ctx, urls, userID)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -139,11 +255,12 @@ type MockURLShorterService_GenerateBatch_Call struct {
 // GenerateBatch is a helper method to define mock.On call
 //   - ctx context.Context
 //   - urls []string
-func (_e *MockURLShorterService_Expecter) GenerateBatch(ctx interface{}, urls interface{}) *MockURLShorterService_GenerateBatch_Call {
-	return &MockURLShorterService_GenerateBatch_Call{Call: _e.mock.On("GenerateBatch", ctx, urls)}
+//   - userID string
+func (_e *MockURLShorterService_Expecter) GenerateBatch(ctx interface{}, urls interface{}, userID interface{}) *MockURLShorterService_GenerateBatch_Call {
+	return &MockURLShorterService_GenerateBatch_Call{Call: _e.mock.On("GenerateBatch", ctx, urls, userID)}
 }
 
-func (_c *MockURLShorterService_GenerateBatch_Call) Run(run func(ctx context.Context, urls []string)) *MockURLShorterService_GenerateBatch_Call {
+func (_c *MockURLShorterService_GenerateBatch_Call) Run(run func(ctx context.Context, urls []string, userID string)) *MockURLShorterService_GenerateBatch_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -153,9 +270,14 @@ func (_c *MockURLShorterService_GenerateBatch_Call) Run(run func(ctx context.Con
 		if args[1] != nil {
 			arg1 = args[1].([]string)
 		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
 		run(
 			arg0,
 			arg1,
+			arg2,
 		)
 	})
 	return _c
@@ -166,7 +288,7 @@ func (_c *MockURLShorterService_GenerateBatch_Call) Return(strings []string, err
 	return _c
 }
 
-func (_c *MockURLShorterService_GenerateBatch_Call) RunAndReturn(run func(ctx context.Context, urls []string) ([]string, error)) *MockURLShorterService_GenerateBatch_Call {
+func (_c *MockURLShorterService_GenerateBatch_Call) RunAndReturn(run func(ctx context.Context, urls []string, userID string) ([]string, error)) *MockURLShorterService_GenerateBatch_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -233,6 +355,74 @@ func (_c *MockURLShorterService_GetOriginalURL_Call) Return(s string, err error)
 }
 
 func (_c *MockURLShorterService_GetOriginalURL_Call) RunAndReturn(run func(ctx context.Context, id string) (string, error)) *MockURLShorterService_GetOriginalURL_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetUserURLs provides a mock function for the type MockURLShorterService
+func (_mock *MockURLShorterService) GetUserURLs(ctx context.Context, userID string) ([]model.URLRecord, error) {
+	ret := _mock.Called(ctx, userID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetUserURLs")
+	}
+
+	var r0 []model.URLRecord
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) ([]model.URLRecord, error)); ok {
+		return returnFunc(ctx, userID)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) []model.URLRecord); ok {
+		r0 = returnFunc(ctx, userID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]model.URLRecord)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = returnFunc(ctx, userID)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockURLShorterService_GetUserURLs_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetUserURLs'
+type MockURLShorterService_GetUserURLs_Call struct {
+	*mock.Call
+}
+
+// GetUserURLs is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID string
+func (_e *MockURLShorterService_Expecter) GetUserURLs(ctx interface{}, userID interface{}) *MockURLShorterService_GetUserURLs_Call {
+	return &MockURLShorterService_GetUserURLs_Call{Call: _e.mock.On("GetUserURLs", ctx, userID)}
+}
+
+func (_c *MockURLShorterService_GetUserURLs_Call) Run(run func(ctx context.Context, userID string)) *MockURLShorterService_GetUserURLs_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockURLShorterService_GetUserURLs_Call) Return(uRLRecords []model.URLRecord, err error) *MockURLShorterService_GetUserURLs_Call {
+	_c.Call.Return(uRLRecords, err)
+	return _c
+}
+
+func (_c *MockURLShorterService_GetUserURLs_Call) RunAndReturn(run func(ctx context.Context, userID string) ([]model.URLRecord, error)) *MockURLShorterService_GetUserURLs_Call {
 	_c.Call.Return(run)
 	return _c
 }

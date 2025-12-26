@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/MarkelovSergey/url-shorter/internal/middleware"
 	"github.com/MarkelovSergey/url-shorter/internal/model"
 	"github.com/MarkelovSergey/url-shorter/internal/service"
 	"go.uber.org/zap"
@@ -48,7 +49,14 @@ func (h *handler) CreateAPIHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	us, err := h.urlShorterService.Generate(r.Context(), req.URL)
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok || userID == "" {
+		w.WriteHeader(http.StatusUnauthorized)
+
+		return
+	}
+
+	us, err := h.urlShorterService.Generate(r.Context(), req.URL, userID)
 
 	shortURL, joinErr := url.JoinPath(h.config.BaseURL, us)
 	if joinErr != nil {

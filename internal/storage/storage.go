@@ -12,4 +12,6 @@ type Storage interface {
 	AppendBatch(ctx context.Context, records []model.URLRecord) error
 	FindByOriginalURL(ctx context.Context, originalURL string) (string, error)
 	FindByShortURL(ctx context.Context, shortURL string) (string, error)
+	FindByUserID(ctx context.Context, userID string) ([]model.URLRecord, error)
+	DeleteBatch(ctx context.Context, shortURLs []string, userID string) error
 }

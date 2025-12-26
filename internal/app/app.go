@@ -72,17 +72,20 @@ func New(cfg config.Config) *App {
 	healthRepo := healthrepository.New(pool)
 
 	healthService := healthservice.New(healthRepo)
-	urlShorterService := urlshorterservice.New(urlShorterRepo, healthRepo)
+	urlShorterService := urlshorterservice.New(urlShorterRepo, healthRepo, logger)
 
 	handler := handler.New(cfg, urlShorterService, healthService, logger)
 	r := chi.NewRouter()
 	r.Use(middleware.Logging(logger))
 	r.Use(middleware.Gzipping)
+	r.Use(middleware.Auth)
 
 	r.Post("/", handler.CreateHandler)
 	r.Get("/{id}", handler.ReadHandler)
 	r.Post("/api/shorten", handler.CreateAPIHandler)
 	r.Post("/api/shorten/batch", handler.CreateBatchHandler)
+	r.Get("/api/user/urls", handler.GetUserURLsHandler)
+	r.Delete("/api/user/urls", handler.DeleteURLsHandler)
 	r.Get("/ping", handler.PingHandler)
 
 	srv := &http.Server{

@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/MarkelovSergey/url-shorter/internal/middleware"
 	"github.com/MarkelovSergey/url-shorter/internal/model"
 	"go.uber.org/zap"
 )
@@ -67,7 +68,14 @@ func (h *handler) CreateBatchHandler(w http.ResponseWriter, r *http.Request) {
 		correlationIDs = append(correlationIDs, req.CorrelationID)
 	}
 
-	shortCodes, err := h.urlShorterService.GenerateBatch(r.Context(), urls)
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok || userID == "" {
+		w.WriteHeader(http.StatusUnauthorized)
+
+		return
+	}
+
+	shortCodes, err := h.urlShorterService.GenerateBatch(r.Context(), urls, userID)
 	if err != nil {
 		h.logger.Error("failed to generate batch short codes",
 			zap.Error(err),

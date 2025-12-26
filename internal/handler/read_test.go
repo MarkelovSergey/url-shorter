@@ -64,6 +64,16 @@ func TestReadHandler(t *testing.T) {
 			expectedStatus: http.StatusBadRequest,
 			expectedBody:   "ID not found",
 		},
+		{
+			name:   "URL has been deleted - should return 410 Gone",
+			method: http.MethodGet,
+			path:   "/" + shortID,
+			mockSetup: func(m *urlshorterservice.MockURLShorterService) {
+				m.EXPECT().GetOriginalURL(mock.Anything, shortID).Return("", service.ErrURLDeleted)
+			},
+			expectedStatus: http.StatusGone,
+			expectedBody:   "",
+		},
 	}
 
 	for _, test := range tests {

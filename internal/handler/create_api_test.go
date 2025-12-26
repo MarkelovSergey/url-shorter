@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/MarkelovSergey/url-shorter/internal/config"
+	"github.com/MarkelovSergey/url-shorter/internal/middleware"
 	"github.com/MarkelovSergey/url-shorter/internal/model"
 	"github.com/MarkelovSergey/url-shorter/internal/service"
 	"github.com/MarkelovSergey/url-shorter/internal/service/healthservice"
@@ -51,7 +52,7 @@ func TestCreateAPIHandler(t *testing.T) {
 			contentType: "application/json",
 			body:        `{"url":"https://practicum.yandex.ru"}`,
 			mockSetup: func(m *urlshorterservice.MockURLShorterService) {
-				m.EXPECT().Generate(mock.Anything, originalURL).Return(shortID, nil)
+				m.EXPECT().Generate(mock.Anything, originalURL, mock.Anything).Return(shortID, nil)
 			},
 			expectedStatus: http.StatusCreated,
 			expectedBody:   expectedShortURL,
@@ -98,7 +99,7 @@ func TestCreateAPIHandler(t *testing.T) {
 			contentType: "application/json",
 			body:        `{"url":"https://practicum.yandex.ru"}`,
 			mockSetup: func(m *urlshorterservice.MockURLShorterService) {
-				m.EXPECT().Generate(mock.Anything, originalURL).Return(shortID, service.ErrURLConflict)
+				m.EXPECT().Generate(mock.Anything, originalURL, mock.Anything).Return(shortID, service.ErrURLConflict)
 			},
 			expectedStatus: http.StatusConflict,
 			expectedBody:   expectedShortURL,
@@ -119,6 +120,10 @@ func TestCreateAPIHandler(t *testing.T) {
 			)
 
 			req.Header.Set("Content-Type", test.contentType)
+			
+			ctx := middleware.SetUserID(req.Context(), "test-user-123")
+			req = req.WithContext(ctx)
+			
 			w := httptest.NewRecorder()
 
 			h := New(cfg, mockURLShorterService, mockHealthService, logger)

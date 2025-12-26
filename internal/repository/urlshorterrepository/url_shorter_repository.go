@@ -12,9 +12,11 @@ import (
 )
 
 type URLShorterRepository interface {
-	Add(ctx context.Context, shortCode, url string) (string, error)
+	Add(ctx context.Context, shortCode, url, userID string) (string, error)
 	Find(ctx context.Context, shortCode string) (string, error)
-	AddBatch(ctx context.Context, urls map[string]string) ([]string, error)
+	AddBatch(ctx context.Context, urls map[string]string, userID string) ([]string, error)
+	GetUserURLs(ctx context.Context, userID string) ([]model.URLRecord, error)
+	DeleteBatch(ctx context.Context, shortURLs []string, userID string) error
 }
 
 type urlShorterRepository struct {
@@ -42,7 +44,7 @@ func New(storage storage.Storage) URLShorterRepository {
 	return repo
 }
 
-func (r *urlShorterRepository) Add(ctx context.Context, shortCode, url string) (string, error) {
+func (r *urlShorterRepository) Add(ctx context.Context, shortCode, url, userID string) (string, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -57,6 +59,7 @@ func (r *urlShorterRepository) Add(ctx context.Context, shortCode, url string) (
 		UUID:        strconv.Itoa(r.counter),
 		ShortURL:    shortCode,
 		OriginalURL: url,
+		UserID:      userID,
 	}
 
 	if err := r.storage.Append(ctx, record); err != nil {
@@ -88,7 +91,7 @@ func (r *urlShorterRepository) Find(ctx context.Context, shortCode string) (stri
 	return originalURL, nil
 }
 
-func (r *urlShorterRepository) AddBatch(ctx context.Context, urls map[string]string) ([]string, error) {
+func (r *urlShorterRepository) AddBatch(ctx context.Context, urls map[string]string, userID string) ([]string, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -112,6 +115,7 @@ func (r *urlShorterRepository) AddBatch(ctx context.Context, urls map[string]str
 			UUID:        strconv.Itoa(r.counter),
 			ShortURL:    shortCode,
 			OriginalURL: url,
+			UserID:      userID,
 		}
 
 		records = append(records, record)
@@ -126,4 +130,12 @@ func (r *urlShorterRepository) AddBatch(ctx context.Context, urls map[string]str
 	}
 
 	return shortCodes, nil
+}
+
+func (r *urlShorterRepository) GetUserURLs(ctx context.Context, userID string) ([]model.URLRecord, error) {
+	return r.storage.FindByUserID(ctx, userID)
+}
+
+func (r *urlShorterRepository) DeleteBatch(ctx context.Context, shortURLs []string, userID string) error {
+	return r.storage.DeleteBatch(ctx, shortURLs, userID)
 }

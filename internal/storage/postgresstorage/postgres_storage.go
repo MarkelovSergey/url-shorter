@@ -22,12 +22,8 @@ func New(pool *pgxpool.Pool) storage.Storage {
 }
 
 func (ps *postgresStorage) Load(ctx context.Context) ([]model.URLRecord, error) {
-	if ps.pool == nil {
-		return nil, errors.New("database connection is nil")
-	}
-
 	rows, err := ps.pool.Query(ctx,
-		"SELECT uuid, short_url, original_url FROM urls")
+		"SELECT uuid, short_url, original_url, COALESCE(user_id, ''), COALESCE(is_deleted, false) FROM urls")
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +32,7 @@ func (ps *postgresStorage) Load(ctx context.Context) ([]model.URLRecord, error) 
 	var records []model.URLRecord
 	for rows.Next() {
 		var record model.URLRecord
-		if err := rows.Scan(&record.UUID, &record.ShortURL, &record.OriginalURL); err != nil {
+		if err := rows.Scan(&record.UUID, &record.ShortURL, &record.OriginalURL, &record.UserID, &record.IsDeleted); err != nil {
 			return nil, err
 		}
 		records = append(records, record)
@@ -50,13 +46,9 @@ func (ps *postgresStorage) Load(ctx context.Context) ([]model.URLRecord, error) 
 }
 
 func (ps *postgresStorage) Append(ctx context.Context, record model.URLRecord) error {
-	if ps.pool == nil {
-		return errors.New("database connection is nil")
-	}
-
 	_, err := ps.pool.Exec(ctx,
-		"INSERT INTO urls (uuid, short_url, original_url) VALUES ($1, $2, $3)",
-		record.UUID, record.ShortURL, record.OriginalURL)
+		"INSERT INTO urls (uuid, short_url, original_url, user_id) VALUES ($1, $2, $3, $4)",
+		record.UUID, record.ShortURL, record.OriginalURL, record.UserID)
 
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
@@ -67,10 +59,6 @@ func (ps *postgresStorage) Append(ctx context.Context, record model.URLRecord) e
 }
 
 func (ps *postgresStorage) AppendBatch(ctx context.Context, records []model.URLRecord) error {
-	if ps.pool == nil {
-		return errors.New("database connection is nil")
-	}
-
 	if len(records) == 0 {
 		return nil
 	}
@@ -78,8 +66,8 @@ func (ps *postgresStorage) AppendBatch(ctx context.Context, records []model.URLR
 	batch := &pgx.Batch{}
 	for _, record := range records {
 		batch.Queue(
-			"INSERT INTO urls (uuid, short_url, original_url) VALUES ($1, $2, $3)",
-			record.UUID, record.ShortURL, record.OriginalURL,
+			"INSERT INTO urls (uuid, short_url, original_url, user_id) VALUES ($1, $2, $3, $4)",
+			record.UUID, record.ShortURL, record.OriginalURL, record.UserID,
 		)
 	}
 
@@ -96,10 +84,6 @@ func (ps *postgresStorage) AppendBatch(ctx context.Context, records []model.URLR
 }
 
 func (ps *postgresStorage) FindByOriginalURL(ctx context.Context, originalURL string) (string, error) {
-	if ps.pool == nil {
-		return "", errors.New("database connection is nil")
-	}
-
 	var shortURL string
 	err := ps.pool.QueryRow(
 		ctx,
@@ -119,16 +103,16 @@ func (ps *postgresStorage) FindByOriginalURL(ctx context.Context, originalURL st
 }
 
 func (ps *postgresStorage) FindByShortURL(ctx context.Context, shortURL string) (string, error) {
-	if ps.pool == nil {
-		return "", errors.New("database connection is nil")
-	}
-
-	var originalURL string
+	var (
+		originalURL string
+		isDeleted   bool
+	)
+	
 	err := ps.pool.QueryRow(
 		ctx,
-		"SELECT original_url FROM urls WHERE short_url = $1",
+		"SELECT original_url, COALESCE(is_deleted, false) FROM urls WHERE short_url = $1",
 		shortURL,
-	).Scan(&originalURL)
+	).Scan(&originalURL, &isDeleted)
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -138,5 +122,59 @@ func (ps *postgresStorage) FindByShortURL(ctx context.Context, shortURL string) 
 		return "", err
 	}
 
+	if isDeleted {
+		return "", repository.ErrDeleted
+	}
+
 	return originalURL, nil
+}
+
+func (ps *postgresStorage) FindByUserID(ctx context.Context, userID string) ([]model.URLRecord, error) {
+	rows, err := ps.pool.Query(ctx,
+		"SELECT uuid, short_url, original_url, COALESCE(user_id, ''), COALESCE(is_deleted, false) FROM urls WHERE user_id = $1",
+		userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var records []model.URLRecord
+	for rows.Next() {
+		var record model.URLRecord
+		if err := rows.Scan(&record.UUID, &record.ShortURL, &record.OriginalURL, &record.UserID, &record.IsDeleted); err != nil {
+			return nil, err
+		}
+		records = append(records, record)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return records, nil
+}
+
+func (ps *postgresStorage) DeleteBatch(ctx context.Context, shortURLs []string, userID string) error {
+	if len(shortURLs) == 0 {
+		return nil
+	}
+
+	batch := &pgx.Batch{}
+	for _, shortURL := range shortURLs {
+		batch.Queue(
+			"UPDATE urls SET is_deleted = true WHERE short_url = $1 AND user_id = $2",
+			shortURL, userID,
+		)
+	}
+
+	br := ps.pool.SendBatch(ctx, batch)
+	defer br.Close()
+
+	for range shortURLs {
+		if _, err := br.Exec(); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
