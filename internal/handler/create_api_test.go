@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/MarkelovSergey/url-shorter/internal/audit"
 	"github.com/MarkelovSergey/url-shorter/internal/config"
 	"github.com/MarkelovSergey/url-shorter/internal/middleware"
 	"github.com/MarkelovSergey/url-shorter/internal/model"
@@ -27,6 +28,8 @@ func TestCreateAPIHandler(t *testing.T) {
 		"http://localhost:8080",
 		"/var/lib/url-shorter/short-url-db.json",
 		"postgres://postgres:password@host.docker.internal:5432/postgres",
+		"",
+		"",
 	)
 
 	originalURL := "https://practicum.yandex.ru"
@@ -120,13 +123,14 @@ func TestCreateAPIHandler(t *testing.T) {
 			)
 
 			req.Header.Set("Content-Type", test.contentType)
-			
+
 			ctx := middleware.SetUserID(req.Context(), "test-user-123")
 			req = req.WithContext(ctx)
-			
+
 			w := httptest.NewRecorder()
 
-			h := New(cfg, mockURLShorterService, mockHealthService, logger)
+			mockAuditPublisher := audit.NewMockPublisher()
+			h := New(cfg, mockURLShorterService, mockHealthService, logger, mockAuditPublisher)
 			h.CreateAPIHandler(w, req)
 
 			assert.Equal(t, test.expectedStatus, w.Code)

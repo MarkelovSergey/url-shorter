@@ -2,6 +2,8 @@ package urlshorterservice
 
 import (
 	"context"
+	cryptorand "crypto/rand"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -34,6 +36,8 @@ type urlShorterService struct {
 	urlShorterRepo urlshorterrepository.URLShorterRepository
 	healthRepo     healthrepository.HealthRepository
 	logger         *zap.Logger
+	rng            *rand.Rand
+	mu             *sync.Mutex
 }
 
 func New(
@@ -41,10 +45,17 @@ func New(
 	healthRepo healthrepository.HealthRepository,
 	logger *zap.Logger,
 ) URLShorterService {
+	var seed int64
+	if err := binary.Read(cryptorand.Reader, binary.BigEndian, &seed); err != nil {
+		seed = time.Now().UnixNano()
+	}
+
 	return &urlShorterService{
-		urlShorterRepo,
-		healthRepo,
-		logger,
+		urlShorterRepo: urlShorterRepo,
+		healthRepo:     healthRepo,
+		logger:         logger,
+		rng:            rand.New(rand.NewSource(seed)),
+		mu:             &sync.Mutex{},
 	}
 }
 
@@ -92,7 +103,7 @@ func (s *urlShorterService) GenerateBatch(ctx context.Context, urls []string, us
 		return []string{}, nil
 	}
 
-	urlMap := make(map[string]string, 0)
+	urlMap := make(map[string]string, len(urls))
 	for _, url := range urls {
 		for i := 0; i < maxGenerateAttempts; i++ {
 			candidate := s.generateRandomShortCode()
@@ -128,7 +139,7 @@ func (s *urlShorterService) deleteURLsAsyncWorker(shortURLs []string, userID str
 	var wg sync.WaitGroup
 
 	for i := 0; i < len(shortURLs); i += batchSize {
-		end := min(i + batchSize, len(shortURLs))
+		end := min(i+batchSize, len(shortURLs))
 
 		batch := shortURLs[i:end]
 		wg.Add(1)
@@ -144,9 +155,13 @@ func (s *urlShorterService) deleteURLsAsyncWorker(shortURLs []string, userID str
 }
 
 func (s *urlShorterService) generateRandomShortCode() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	b := make([]byte, shortCodeLength)
+	charsetLen := len(charset)
 	for i := range b {
-		b[i] = charset[rand.Intn(len(charset))]
+		b[i] = charset[s.rng.Intn(charsetLen)]
 	}
 
 	return string(b)

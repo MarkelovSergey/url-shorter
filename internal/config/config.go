@@ -10,6 +10,8 @@ const (
 	baseURLEnv         = "BASE_URL"
 	fileStoragePathEnv = "FILE_STORAGE_PATH"
 	databaseDSNEnv     = "DATABASE_DSN"
+	auditFileEnv       = "AUDIT_FILE"
+	auditURLEnv        = "AUDIT_URL"
 )
 
 type Config struct {
@@ -17,14 +19,18 @@ type Config struct {
 	BaseURL         string
 	FileStoragePath string
 	DatabaseDSN     string
+	AuditFile       string
+	AuditURL        string
 }
 
-func New(serverAddr, baseURL, fileStoragePath, databaseDSN string) Config {
+func New(serverAddr, baseURL, fileStoragePath, databaseDSN, auditFile, auditURL string) Config {
 	return Config{
 		ServerAddress:   serverAddr,
 		BaseURL:         baseURL,
 		FileStoragePath: fileStoragePath,
 		DatabaseDSN:     databaseDSN,
+		AuditFile:       auditFile,
+		AuditURL:        auditURL,
 	}
 }
 
@@ -33,6 +39,8 @@ func ParseFlags() Config {
 	baseURL := flag.String("b", "http://localhost:8080", "base URL")
 	fileStoragePath := flag.String("f", "/var/lib/url-shorter/short-url-db.json", "file storage path")
 	databaseDSN := flag.String("d", "", "database connection string")
+	auditFile := flag.String("audit-file", "", "path to audit log file")
+	auditURL := flag.String("audit-url", "", "URL of remote audit server")
 	flag.Parse()
 
 	finalServerAddr := *serverAddr
@@ -55,5 +63,15 @@ func ParseFlags() Config {
 		finalDatabaseDSN = envDatabaseDSN
 	}
 
-	return New(finalServerAddr, finalBaseURL, finalFileStoragePath, finalDatabaseDSN)
+	finalAuditFile := *auditFile
+	if envAuditFile, ok := os.LookupEnv(auditFileEnv); ok {
+		finalAuditFile = envAuditFile
+	}
+
+	finalAuditURL := *auditURL
+	if envAuditURL, ok := os.LookupEnv(auditURLEnv); ok {
+		finalAuditURL = envAuditURL
+	}
+
+	return New(finalServerAddr, finalBaseURL, finalFileStoragePath, finalDatabaseDSN, finalAuditFile, finalAuditURL)
 }

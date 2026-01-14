@@ -5,7 +5,20 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 )
+
+var gzipWriterPool = sync.Pool{
+	New: func() any {
+		return gzip.NewWriter(io.Discard)
+	},
+}
+
+var gzipReaderPool = sync.Pool{
+	New: func() any {
+		return new(gzip.Reader)
+	},
+}
 
 type gzipReader struct {
 	r  io.ReadCloser
@@ -13,8 +26,9 @@ type gzipReader struct {
 }
 
 func newGzipReader(r io.ReadCloser) (*gzipReader, error) {
-	zr, err := gzip.NewReader(r)
-	if err != nil {
+	zr := gzipReaderPool.Get().(*gzip.Reader)
+	if err := zr.Reset(r); err != nil {
+		gzipReaderPool.Put(zr)
 		return nil, err
 	}
 
@@ -29,11 +43,14 @@ func (c gzipReader) Read(p []byte) (n int, err error) {
 }
 
 func (c *gzipReader) Close() error {
-	if err := c.r.Close(); err != nil {
-		return err
+	err := c.zr.Close()
+	gzipReaderPool.Put(c.zr)
+
+	if closeErr := c.r.Close(); closeErr != nil && err == nil {
+		err = closeErr
 	}
 
-	return c.zr.Close()
+	return err
 }
 
 type gzipWriterWithContentType struct {
@@ -50,7 +67,9 @@ func (w *gzipWriterWithContentType) WriteHeader(statusCode int) {
 		w.gzipEnabled = w.shouldCompress(contentType)
 
 		if w.gzipEnabled {
-			w.gzipWriter = gzip.NewWriter(w.ResponseWriter)
+			gzw := gzipWriterPool.Get().(*gzip.Writer)
+			gzw.Reset(w.ResponseWriter)
+			w.gzipWriter = gzw
 			w.ResponseWriter.Header().Set("Content-Encoding", "gzip")
 			w.ResponseWriter.Header().Del("Content-Length")
 		}
@@ -72,7 +91,9 @@ func (w *gzipWriterWithContentType) Write(b []byte) (int, error) {
 		w.gzipEnabled = w.shouldCompress(contentType)
 
 		if w.gzipEnabled {
-			w.gzipWriter = gzip.NewWriter(w.ResponseWriter)
+			gzw := gzipWriterPool.Get().(*gzip.Writer)
+			gzw.Reset(w.ResponseWriter)
+			w.gzipWriter = gzw
 			w.ResponseWriter.Header().Set("Content-Encoding", "gzip")
 			w.ResponseWriter.Header().Del("Content-Length")
 		}
@@ -113,6 +134,7 @@ func Gzipping(next http.Handler) http.Handler {
 
 			if gzw.gzipWriter != nil {
 				gzw.gzipWriter.Close()
+				gzipWriterPool.Put(gzw.gzipWriter)
 			}
 
 			return

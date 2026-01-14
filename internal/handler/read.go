@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/MarkelovSergey/url-shorter/internal/audit"
 	"github.com/MarkelovSergey/url-shorter/internal/service"
 )
 
@@ -26,12 +27,14 @@ func (h *handler) ReadHandler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusGone)
 			return
 		}
-		
+
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("ID not found"))
 
 		return
 	}
+
+	h.auditPublisher.Publish(audit.NewEvent(audit.ActionFollow, u, nil))
 
 	http.Redirect(w, r, u, http.StatusTemporaryRedirect)
 }

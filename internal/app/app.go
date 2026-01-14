@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/MarkelovSergey/url-shorter/internal/audit"
 	"github.com/MarkelovSergey/url-shorter/internal/config"
 	"github.com/MarkelovSergey/url-shorter/internal/handler"
 	"github.com/MarkelovSergey/url-shorter/internal/middleware"
@@ -27,9 +28,10 @@ import (
 )
 
 type App struct {
-	server *http.Server
-	dbPool *pgxpool.Pool
-	logger *zap.Logger
+	server         *http.Server
+	dbPool         *pgxpool.Pool
+	logger         *zap.Logger
+	auditPublisher *audit.AuditPublisher
 }
 
 func New(cfg config.Config) *App {
@@ -74,7 +76,26 @@ func New(cfg config.Config) *App {
 	healthService := healthservice.New(healthRepo)
 	urlShorterService := urlshorterservice.New(urlShorterRepo, healthRepo, logger)
 
-	handler := handler.New(cfg, urlShorterService, healthService, logger)
+	// Инициализация системы аудита
+	auditPublisher := audit.NewPublisher(logger)
+
+	if cfg.AuditFile != "" {
+		fileObserver, err := audit.NewFileObserver(cfg.AuditFile, logger)
+		if err != nil {
+			log.Printf("Warning: Failed to create file audit observer: %v", err)
+		} else {
+			auditPublisher.Subscribe(fileObserver)
+			log.Printf("Audit file observer enabled: %s", cfg.AuditFile)
+		}
+	}
+
+	if cfg.AuditURL != "" {
+		httpObserver := audit.NewHTTPObserver(cfg.AuditURL, logger)
+		auditPublisher.Subscribe(httpObserver)
+		log.Printf("Audit HTTP observer enabled: %s", cfg.AuditURL)
+	}
+
+	handler := handler.New(cfg, urlShorterService, healthService, logger, auditPublisher)
 	r := chi.NewRouter()
 	r.Use(middleware.Logging(logger))
 	r.Use(middleware.Gzipping)
@@ -94,9 +115,10 @@ func New(cfg config.Config) *App {
 	}
 
 	return &App{
-		server: srv,
-		dbPool: pool,
-		logger: logger,
+		server:         srv,
+		dbPool:         pool,
+		logger:         logger,
+		auditPublisher: auditPublisher,
 	}
 }
 
@@ -124,6 +146,9 @@ func (a *App) Run() error {
 
 	if a.dbPool != nil {
 		a.dbPool.Close()
+	}
+	if a.auditPublisher != nil {
+		a.auditPublisher.Close()
 	}
 	if a.logger != nil {
 		a.logger.Sync()

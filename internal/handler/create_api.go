@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/MarkelovSergey/url-shorter/internal/audit"
 	"github.com/MarkelovSergey/url-shorter/internal/middleware"
 	"github.com/MarkelovSergey/url-shorter/internal/model"
 	"github.com/MarkelovSergey/url-shorter/internal/service"
@@ -88,6 +89,8 @@ func (h *handler) CreateAPIHandler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusConflict)
 			w.Write(jsonResp)
 
+			h.auditPublisher.Publish(audit.NewEvent(audit.ActionShorten, req.URL, &userID))
+
 			return
 		}
 
@@ -99,4 +102,6 @@ func (h *handler) CreateAPIHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusCreated)
 	w.Write(jsonResp)
+
+	h.auditPublisher.Publish(audit.NewEvent(audit.ActionShorten, req.URL, &userID))
 }
