@@ -7,6 +7,7 @@ import (
 	"github.com/MarkelovSergey/url-shorter/internal/middleware"
 )
 
+// DeleteURLsHandler обрабатывает запрос на удаление URL-адресов пользователя.
 func (h *handler) DeleteURLsHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok || userID == "" {

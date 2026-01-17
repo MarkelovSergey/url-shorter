@@ -7,12 +7,14 @@ import (
 	"go.uber.org/zap"
 )
 
+// AuditPublisher реализует паттерн Publisher для рассылки событий аудита.
 type AuditPublisher struct {
 	observers []Observer
 	mu        *sync.RWMutex
 	logger    *zap.Logger
 }
 
+// NewPublisher создает новый экземпляр AuditPublisher.
 func NewPublisher(logger *zap.Logger) *AuditPublisher {
 	return &AuditPublisher{
 		observers: make([]Observer, 0),
@@ -21,6 +23,7 @@ func NewPublisher(logger *zap.Logger) *AuditPublisher {
 	}
 }
 
+// Subscribe добавляет наблюдателя для получения событий аудита.
 func (p *AuditPublisher) Subscribe(observer Observer) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -29,6 +32,7 @@ func (p *AuditPublisher) Subscribe(observer Observer) {
 	p.logger.Info("audit observer subscribed", zap.Int("total_observers", len(p.observers)))
 }
 
+// Unsubscribe удаляет наблюдателя из списка подписчиков.
 func (p *AuditPublisher) Unsubscribe(observer Observer) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -42,6 +46,7 @@ func (p *AuditPublisher) Unsubscribe(observer Observer) {
 	}
 }
 
+// Publish рассылает событие всем наблюдателям асинхронно.
 func (p *AuditPublisher) Publish(event Event) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -59,6 +64,7 @@ func (p *AuditPublisher) Publish(event Event) {
 	}
 }
 
+// Close закрывает всех наблюдателей и освобождает ресурсы.
 func (p *AuditPublisher) Close() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -75,6 +81,7 @@ func (p *AuditPublisher) Close() error {
 	return nil
 }
 
+// HasObservers проверяет, есть ли зарегистрированные наблюдатели.
 func (p *AuditPublisher) HasObservers() bool {
 	p.mu.RLock()
 	defer p.mu.RUnlock()

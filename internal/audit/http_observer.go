@@ -9,12 +9,14 @@ import (
 	"go.uber.org/zap"
 )
 
+// HTTPObserver отправляет события аудита на удаленный HTTP-сервер.
 type HTTPObserver struct {
 	url    string
 	client *http.Client
 	logger *zap.Logger
 }
 
+// NewHTTPObserver создает новый HTTP-наблюдатель для отправки событий.
 func NewHTTPObserver(url string, logger *zap.Logger) *HTTPObserver {
 	return &HTTPObserver{
 		url: url,
@@ -25,6 +27,7 @@ func NewHTTPObserver(url string, logger *zap.Logger) *HTTPObserver {
 	}
 }
 
+// OnEvent обрабатывает событие аудита и отправляет его на удаленный сервер.
 func (ho *HTTPObserver) OnEvent(event Event) error {
 	data, err := json.Marshal(event)
 	if err != nil {
@@ -54,6 +57,7 @@ func (ho *HTTPObserver) OnEvent(event Event) error {
 	return nil
 }
 
+// Close закрывает HTTP-клиент и освобождает ресурсы.
 func (ho *HTTPObserver) Close() error {
 	ho.client.CloseIdleConnections()
 

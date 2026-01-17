@@ -1,3 +1,4 @@
+// Package handler содержит HTTP-обработчики для API сокращения URL.
 package handler
 
 import (
@@ -12,6 +13,7 @@ import (
 	"github.com/MarkelovSergey/url-shorter/internal/service"
 )
 
+// CreateHandler обрабатывает запрос на создание короткой ссылки в формате text/plain.
 func (h *handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("Content-Type") != "text/plain" {
 		w.WriteHeader(http.StatusBadRequest)

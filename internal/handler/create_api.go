@@ -15,6 +15,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// CreateAPIHandler обрабатывает JSON-запрос на создание короткой ссылки.
 func (h *handler) CreateAPIHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("Content-Type") != "application/json" {
 		w.WriteHeader(http.StatusBadRequest)

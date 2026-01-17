@@ -1,3 +1,4 @@
+// Package filestorage содержит реализацию хранилища на основе файла.
 package filestorage
 
 import (
@@ -8,20 +9,22 @@ import (
 
 	"github.com/MarkelovSergey/url-shorter/internal/model"
 	"github.com/MarkelovSergey/url-shorter/internal/repository"
-	"github.com/MarkelovSergey/url-shorter/internal/storage"
 )
 
-type fileStorage struct {
+// FileStorage представляет файловое хранилище.
+type FileStorage struct {
 	filePath string
 }
 
-func New(filePath string) storage.Storage {
-	return &fileStorage{
+// New создает новое файловое хранилище.
+func New(filePath string) *FileStorage {
+	return &FileStorage{
 		filePath: filePath,
 	}
 }
 
-func (fs *fileStorage) Load(ctx context.Context) ([]model.URLRecord, error) {
+// Load загружает все записи из файла.
+func (fs *FileStorage) Load(ctx context.Context) ([]model.URLRecord, error) {
 	data, err := os.ReadFile(fs.filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -43,7 +46,8 @@ func (fs *fileStorage) Load(ctx context.Context) ([]model.URLRecord, error) {
 	return records, nil
 }
 
-func (fs *fileStorage) Append(ctx context.Context, record model.URLRecord) error {
+// Append добавляет запись в файл.
+func (fs *FileStorage) Append(ctx context.Context, record model.URLRecord) error {
 	records, err := fs.Load(ctx)
 	if err != nil {
 		return err
@@ -54,7 +58,8 @@ func (fs *fileStorage) Append(ctx context.Context, record model.URLRecord) error
 	return fs.save(records)
 }
 
-func (fs *fileStorage) AppendBatch(ctx context.Context, newRecords []model.URLRecord) error {
+// AppendBatch добавляет несколько записей в файл.
+func (fs *FileStorage) AppendBatch(ctx context.Context, newRecords []model.URLRecord) error {
 	if len(newRecords) == 0 {
 		return nil
 	}
@@ -69,7 +74,8 @@ func (fs *fileStorage) AppendBatch(ctx context.Context, newRecords []model.URLRe
 	return fs.save(records)
 }
 
-func (fs *fileStorage) FindByOriginalURL(ctx context.Context, originalURL string) (string, error) {
+// FindByOriginalURL находит короткий URL по оригинальному.
+func (fs *FileStorage) FindByOriginalURL(ctx context.Context, originalURL string) (string, error) {
 	records, err := fs.Load(ctx)
 	if err != nil {
 		return "", err
@@ -84,7 +90,8 @@ func (fs *fileStorage) FindByOriginalURL(ctx context.Context, originalURL string
 	return "", nil
 }
 
-func (fs *fileStorage) FindByShortURL(ctx context.Context, shortURL string) (string, error) {
+// FindByShortURL находит оригинальный URL по короткому.
+func (fs *FileStorage) FindByShortURL(ctx context.Context, shortURL string) (string, error) {
 	records, err := fs.Load(ctx)
 	if err != nil {
 		return "", err
@@ -102,7 +109,8 @@ func (fs *fileStorage) FindByShortURL(ctx context.Context, shortURL string) (str
 	return "", nil
 }
 
-func (fs *fileStorage) FindByUserID(ctx context.Context, userID string) ([]model.URLRecord, error) {
+// FindByUserID находит все URL пользователя.
+func (fs *FileStorage) FindByUserID(ctx context.Context, userID string) ([]model.URLRecord, error) {
 	records, err := fs.Load(ctx)
 	if err != nil {
 		return nil, err
@@ -118,7 +126,8 @@ func (fs *fileStorage) FindByUserID(ctx context.Context, userID string) ([]model
 	return result, nil
 }
 
-func (fs *fileStorage) DeleteBatch(ctx context.Context, shortURLs []string, userID string) error {
+// DeleteBatch удаляет несколько URL пакетно.
+func (fs *FileStorage) DeleteBatch(ctx context.Context, shortURLs []string, userID string) error {
 	records, err := fs.Load(ctx)
 	if err != nil {
 		return err
@@ -138,7 +147,7 @@ func (fs *fileStorage) DeleteBatch(ctx context.Context, shortURLs []string, user
 	return fs.save(records)
 }
 
-func (fs *fileStorage) save(records []model.URLRecord) error {
+func (fs *FileStorage) save(records []model.URLRecord) error {
 	dir := filepath.Dir(fs.filePath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err

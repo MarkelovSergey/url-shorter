@@ -16,6 +16,7 @@ type handler struct {
 	auditPublisher    audit.Publisher
 }
 
+// New создает новый экземпляр обработчика.
 func New(
 	config config.Config,
 	urlShorterService urlshorterservice.URLShorterService,

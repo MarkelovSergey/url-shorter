@@ -1,3 +1,4 @@
+// Package postgresstorage содержит реализацию хранилища на основе PostgreSQL.
 package postgresstorage
 
 import (
@@ -6,22 +7,24 @@ import (
 
 	"github.com/MarkelovSergey/url-shorter/internal/model"
 	"github.com/MarkelovSergey/url-shorter/internal/repository"
-	"github.com/MarkelovSergey/url-shorter/internal/storage"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type postgresStorage struct {
+// PostgresStorage представляет PostgreSQL-хранилище.
+type PostgresStorage struct {
 	pool *pgxpool.Pool
 }
 
-func New(pool *pgxpool.Pool) storage.Storage {
-	return &postgresStorage{pool}
+// New создает новое PostgreSQL-хранилище.
+func New(pool *pgxpool.Pool) *PostgresStorage {
+	return &PostgresStorage{pool}
 }
 
-func (ps *postgresStorage) Load(ctx context.Context) ([]model.URLRecord, error) {
+// Load загружает все записи из базы данных.
+func (ps *PostgresStorage) Load(ctx context.Context) ([]model.URLRecord, error) {
 	rows, err := ps.pool.Query(ctx,
 		"SELECT uuid, short_url, original_url, COALESCE(user_id, ''), COALESCE(is_deleted, false) FROM urls")
 	if err != nil {
@@ -45,7 +48,8 @@ func (ps *postgresStorage) Load(ctx context.Context) ([]model.URLRecord, error) 
 	return records, nil
 }
 
-func (ps *postgresStorage) Append(ctx context.Context, record model.URLRecord) error {
+// Append добавляет запись в базу данных.
+func (ps *PostgresStorage) Append(ctx context.Context, record model.URLRecord) error {
 	_, err := ps.pool.Exec(ctx,
 		"INSERT INTO urls (uuid, short_url, original_url, user_id) VALUES ($1, $2, $3, $4)",
 		record.UUID, record.ShortURL, record.OriginalURL, record.UserID)
@@ -58,7 +62,8 @@ func (ps *postgresStorage) Append(ctx context.Context, record model.URLRecord) e
 	return err
 }
 
-func (ps *postgresStorage) AppendBatch(ctx context.Context, records []model.URLRecord) error {
+// AppendBatch добавляет несколько записей в базу данных.
+func (ps *PostgresStorage) AppendBatch(ctx context.Context, records []model.URLRecord) error {
 	if len(records) == 0 {
 		return nil
 	}
@@ -83,7 +88,8 @@ func (ps *postgresStorage) AppendBatch(ctx context.Context, records []model.URLR
 	return nil
 }
 
-func (ps *postgresStorage) FindByOriginalURL(ctx context.Context, originalURL string) (string, error) {
+// FindByOriginalURL находит короткий URL по оригинальному.
+func (ps *PostgresStorage) FindByOriginalURL(ctx context.Context, originalURL string) (string, error) {
 	var shortURL string
 	err := ps.pool.QueryRow(
 		ctx,
@@ -102,7 +108,8 @@ func (ps *postgresStorage) FindByOriginalURL(ctx context.Context, originalURL st
 	return shortURL, nil
 }
 
-func (ps *postgresStorage) FindByShortURL(ctx context.Context, shortURL string) (string, error) {
+// FindByShortURL находит оригинальный URL по короткому.
+func (ps *PostgresStorage) FindByShortURL(ctx context.Context, shortURL string) (string, error) {
 	var (
 		originalURL string
 		isDeleted   bool
@@ -129,7 +136,8 @@ func (ps *postgresStorage) FindByShortURL(ctx context.Context, shortURL string) 
 	return originalURL, nil
 }
 
-func (ps *postgresStorage) FindByUserID(ctx context.Context, userID string) ([]model.URLRecord, error) {
+// FindByUserID находит все URL пользователя.
+func (ps *PostgresStorage) FindByUserID(ctx context.Context, userID string) ([]model.URLRecord, error) {
 	rows, err := ps.pool.Query(ctx,
 		"SELECT uuid, short_url, original_url, COALESCE(user_id, ''), COALESCE(is_deleted, false) FROM urls WHERE user_id = $1",
 		userID)
@@ -154,7 +162,8 @@ func (ps *postgresStorage) FindByUserID(ctx context.Context, userID string) ([]m
 	return records, nil
 }
 
-func (ps *postgresStorage) DeleteBatch(ctx context.Context, shortURLs []string, userID string) error {
+// DeleteBatch удаляет несколько URL пакетно.
+func (ps *PostgresStorage) DeleteBatch(ctx context.Context, shortURLs []string, userID string) error {
 	if len(shortURLs) == 0 {
 		return nil
 	}

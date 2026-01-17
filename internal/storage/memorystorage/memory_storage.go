@@ -1,3 +1,4 @@
+// Package memorystorage содержит реализацию хранилища в памяти.
 package memorystorage
 
 import (
@@ -6,18 +7,19 @@ import (
 
 	"github.com/MarkelovSergey/url-shorter/internal/model"
 	"github.com/MarkelovSergey/url-shorter/internal/repository"
-	"github.com/MarkelovSergey/url-shorter/internal/storage"
 )
 
-type memoryStorage struct {
+// MemoryStorage представляет хранилище в памяти.
+type MemoryStorage struct {
 	mu               *sync.RWMutex
 	records          []model.URLRecord
 	shortURLIndex    map[string]int
 	originalURLIndex map[string]int
 }
 
-func New() storage.Storage {
-	return &memoryStorage{
+// New создает новое хранилище в памяти.
+func New() *MemoryStorage {
+	return &MemoryStorage{
 		mu:               &sync.RWMutex{},
 		records:          make([]model.URLRecord, 0),
 		shortURLIndex:    make(map[string]int),
@@ -25,7 +27,8 @@ func New() storage.Storage {
 	}
 }
 
-func (ms *memoryStorage) Load(ctx context.Context) ([]model.URLRecord, error) {
+// Load загружает все записи из памяти.
+func (ms *MemoryStorage) Load(ctx context.Context) ([]model.URLRecord, error) {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
 
@@ -35,7 +38,8 @@ func (ms *memoryStorage) Load(ctx context.Context) ([]model.URLRecord, error) {
 	return result, nil
 }
 
-func (ms *memoryStorage) Append(ctx context.Context, record model.URLRecord) error {
+// Append добавляет запись в память.
+func (ms *MemoryStorage) Append(ctx context.Context, record model.URLRecord) error {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
 
@@ -47,7 +51,8 @@ func (ms *memoryStorage) Append(ctx context.Context, record model.URLRecord) err
 	return nil
 }
 
-func (ms *memoryStorage) AppendBatch(ctx context.Context, records []model.URLRecord) error {
+// AppendBatch добавляет несколько записей в память.
+func (ms *MemoryStorage) AppendBatch(ctx context.Context, records []model.URLRecord) error {
 	if len(records) == 0 {
 		return nil
 	}
@@ -67,7 +72,8 @@ func (ms *memoryStorage) AppendBatch(ctx context.Context, records []model.URLRec
 	return nil
 }
 
-func (ms *memoryStorage) FindByOriginalURL(ctx context.Context, originalURL string) (string, error) {
+// FindByOriginalURL находит короткий URL по оригинальному.
+func (ms *MemoryStorage) FindByOriginalURL(ctx context.Context, originalURL string) (string, error) {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
 
@@ -78,7 +84,8 @@ func (ms *memoryStorage) FindByOriginalURL(ctx context.Context, originalURL stri
 	return "", nil
 }
 
-func (ms *memoryStorage) FindByShortURL(ctx context.Context, shortURL string) (string, error) {
+// FindByShortURL находит оригинальный URL по короткому.
+func (ms *MemoryStorage) FindByShortURL(ctx context.Context, shortURL string) (string, error) {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
 
@@ -94,7 +101,8 @@ func (ms *memoryStorage) FindByShortURL(ctx context.Context, shortURL string) (s
 	return "", nil
 }
 
-func (ms *memoryStorage) FindByUserID(ctx context.Context, userID string) ([]model.URLRecord, error) {
+// FindByUserID находит все URL пользователя.
+func (ms *MemoryStorage) FindByUserID(ctx context.Context, userID string) ([]model.URLRecord, error) {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
 
@@ -115,7 +123,8 @@ func (ms *memoryStorage) FindByUserID(ctx context.Context, userID string) ([]mod
 	return result, nil
 }
 
-func (ms *memoryStorage) DeleteBatch(ctx context.Context, shortURLs []string, userID string) error {
+// DeleteBatch удаляет несколько URL пакетно.
+func (ms *MemoryStorage) DeleteBatch(ctx context.Context, shortURLs []string, userID string) error {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
 

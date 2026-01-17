@@ -1,3 +1,4 @@
+// Package urlshorterservice содержит бизнес-логику сокращения URL.
 package urlshorterservice
 
 import (
@@ -32,6 +33,7 @@ var shortCodePool = sync.Pool{
 	},
 }
 
+// URLShorterService определяет интерфейс сервиса сокращения URL.
 type URLShorterService interface {
 	GetOriginalURL(ctx context.Context, id string) (string, error)
 	Generate(ctx context.Context, url, userID string) (string, error)
@@ -48,6 +50,7 @@ type urlShorterService struct {
 	mu             *sync.Mutex
 }
 
+// New создает новый экземпляр URLShorterService.
 func New(
 	urlShorterRepo urlshorterrepository.URLShorterRepository,
 	healthRepo healthrepository.HealthRepository,
@@ -67,6 +70,7 @@ func New(
 	}
 }
 
+// GetOriginalURL возвращает оригинальный URL по короткому коду.
 func (s *urlShorterService) GetOriginalURL(ctx context.Context, shortCode string) (string, error) {
 	url, err := s.urlShorterRepo.Find(ctx, shortCode)
 	if err != nil {
@@ -83,6 +87,7 @@ func (s *urlShorterService) GetOriginalURL(ctx context.Context, shortCode string
 	return url, nil
 }
 
+// Generate генерирует короткий код для URL.
 func (s *urlShorterService) Generate(ctx context.Context, url, userID string) (string, error) {
 	for i := 0; i < maxGenerateAttempts; i++ {
 		candidate := s.generateRandomShortCode()
@@ -106,6 +111,7 @@ func (s *urlShorterService) Generate(ctx context.Context, url, userID string) (s
 		fmt.Errorf("%w after %d attempts", service.ErrGenerateShortCode, maxGenerateAttempts)
 }
 
+// GenerateBatch генерирует короткие коды для нескольких URL.
 func (s *urlShorterService) GenerateBatch(ctx context.Context, urls []string, userID string) ([]string, error) {
 	if len(urls) == 0 {
 		return []string{}, nil
@@ -131,10 +137,12 @@ func (s *urlShorterService) GenerateBatch(ctx context.Context, urls []string, us
 	return shortCodes, nil
 }
 
+// GetUserURLs возвращает все URL пользователя.
 func (s *urlShorterService) GetUserURLs(ctx context.Context, userID string) ([]model.URLRecord, error) {
 	return s.urlShorterRepo.GetUserURLs(ctx, userID)
 }
 
+// DeleteURLsAsync асинхронно удаляет URL.
 func (s *urlShorterService) DeleteURLsAsync(shortURLs []string, userID string) {
 	go s.deleteURLsAsyncWorker(shortURLs, userID)
 }

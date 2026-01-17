@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// CreateBatchHandler обрабатывает пакетный запрос на создание коротких ссылок.
 func (h *handler) CreateBatchHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("Content-Type") != "application/json" {
 		w.WriteHeader(http.StatusBadRequest)

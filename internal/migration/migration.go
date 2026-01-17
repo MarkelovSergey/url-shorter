@@ -1,3 +1,4 @@
+// Package migration содержит функции для миграции базы данных.
 package migration
 
 import (
@@ -10,6 +11,7 @@ import (
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 )
 
+// RunMigrations выполняет миграции базы данных.
 func RunMigrations(databaseDSN string) error {
 	d, err := iofs.New(migrations.FS, ".")
 	if err != nil {

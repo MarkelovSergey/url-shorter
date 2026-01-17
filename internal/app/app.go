@@ -27,6 +27,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// App представляет основное приложение сервиса сокращения URL.
 type App struct {
 	server         *http.Server
 	dbPool         *pgxpool.Pool
@@ -34,6 +35,7 @@ type App struct {
 	auditPublisher *audit.AuditPublisher
 }
 
+// New создает новый экземпляр приложения с заданной конфигурацией.
 func New(cfg config.Config) *App {
 	var (
 		pool       *pgxpool.Pool
@@ -122,6 +124,7 @@ func New(cfg config.Config) *App {
 	}
 }
 
+// Run запускает HTTP-сервер приложения и ожидает сигнал завершения.
 func (a *App) Run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()

@@ -20,7 +20,7 @@ func BenchmarkMemoryStorageFindByShortURL(b *testing.B) {
 
 	for _, bm := range benchmarks {
 		b.Run(bm.name, func(b *testing.B) {
-			storage := New().(*memoryStorage)
+			storage := New()
 			ctx := context.Background()
 
 			// Заполняем storage
@@ -58,7 +58,7 @@ func BenchmarkMemoryStorageFindByOriginalURL(b *testing.B) {
 
 	for _, bm := range benchmarks {
 		b.Run(bm.name, func(b *testing.B) {
-			storage := New().(*memoryStorage)
+			storage := New()
 			ctx := context.Background()
 
 			// Заполняем storage
@@ -85,7 +85,7 @@ func BenchmarkMemoryStorageFindByOriginalURL(b *testing.B) {
 }
 
 func BenchmarkMemoryStorageAppend(b *testing.B) {
-	storage := New().(*memoryStorage)
+	storage := New()
 	ctx := context.Background()
 
 	b.ResetTimer()
@@ -128,7 +128,7 @@ func BenchmarkMemoryStorageAppendBatch(b *testing.B) {
 			b.ResetTimer()
 			b.ReportAllocs()
 			for i := 0; i < b.N; i++ {
-				newStorage := New().(*memoryStorage)
+				newStorage := New()
 				_ = newStorage.AppendBatch(ctx, records)
 			}
 		})
@@ -147,7 +147,7 @@ func BenchmarkMemoryStorageFindByUserID(b *testing.B) {
 
 	for _, bm := range benchmarks {
 		b.Run(bm.name, func(b *testing.B) {
-			storage := New().(*memoryStorage)
+			storage := New()
 			ctx := context.Background()
 
 			// Заполняем storage записями разных пользователей
@@ -185,7 +185,7 @@ func BenchmarkMemoryStorageDeleteBatch(b *testing.B) {
 			ctx := context.Background()
 
 			// Подготавливаем данные один раз
-			storage := New().(*memoryStorage)
+			storage := New()
 			shortURLs := make([]string, bm.deleteSize)
 			for j := 0; j < bm.totalCount; j++ {
 				record := model.URLRecord{

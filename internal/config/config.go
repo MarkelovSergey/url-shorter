@@ -1,3 +1,4 @@
+// Package config содержит конфигурацию приложения.
 package config
 
 import (
@@ -14,6 +15,7 @@ const (
 	auditURLEnv        = "AUDIT_URL"
 )
 
+// Config содержит настройки приложения.
 type Config struct {
 	ServerAddress   string
 	BaseURL         string
@@ -23,6 +25,7 @@ type Config struct {
 	AuditURL        string
 }
 
+// New создает новый экземпляр конфигурации с заданными параметрами.
 func New(serverAddr, baseURL, fileStoragePath, databaseDSN, auditFile, auditURL string) Config {
 	return Config{
 		ServerAddress:   serverAddr,
@@ -34,6 +37,7 @@ func New(serverAddr, baseURL, fileStoragePath, databaseDSN, auditFile, auditURL 
 	}
 }
 
+// ParseFlags парсит флаги командной строки и переменные окружения.
 func ParseFlags() Config {
 	serverAddr := flag.String("a", ":8080", "HTTP server address (e.g. localhost:8888)")
 	baseURL := flag.String("b", "http://localhost:8080", "base URL")

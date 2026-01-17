@@ -9,6 +9,7 @@ import (
 	"github.com/MarkelovSergey/url-shorter/internal/model"
 )
 
+// GetUserURLsHandler обрабатывает запрос на получение списка URL пользователя.
 func (h *handler) GetUserURLsHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok || userID == "" {

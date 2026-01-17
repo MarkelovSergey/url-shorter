@@ -1,9 +1,12 @@
+// Package model содержит модели данных приложения.
 package model
 
+// Request представляет запрос на создание короткой ссылки.
 type Request struct {
 	URL string `json:"url"`
 }
 
+// Response представляет ответ с короткой ссылкой.
 type Response struct {
 	Result string `json:"result"`
 }

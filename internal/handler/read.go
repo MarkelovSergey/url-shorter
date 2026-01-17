@@ -9,6 +9,7 @@ import (
 	"github.com/MarkelovSergey/url-shorter/internal/service"
 )
 
+// ReadHandler обрабатывает запрос на перенаправление по короткой ссылке.
 func (h *handler) ReadHandler(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
 	parts := strings.Split(path, "/")
