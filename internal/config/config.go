@@ -17,12 +17,18 @@ const (
 
 // Config содержит настройки приложения.
 type Config struct {
-	ServerAddress   string
-	BaseURL         string
+	// ServerAddress - адрес HTTP-сервера (например, ":8080" или "localhost:8888")
+	ServerAddress string
+	// BaseURL - базовый URL для создания коротких ссылок (например, "http://localhost:8080")
+	BaseURL string
+	// FileStoragePath - путь к файлу для хранения URL (если не используется PostgreSQL)
 	FileStoragePath string
-	DatabaseDSN     string
-	AuditFile       string
-	AuditURL        string
+	// DatabaseDSN - строка подключения к PostgreSQL (если задана, используется вместо файлового хранилища)
+	DatabaseDSN string
+	// AuditFile - путь к файлу для записи событий аудита
+	AuditFile string
+	// AuditURL - URL удаленного сервера для отправки событий аудита
+	AuditURL string
 }
 
 // New создает новый экземпляр конфигурации с заданными параметрами.
@@ -38,6 +44,19 @@ func New(serverAddr, baseURL, fileStoragePath, databaseDSN, auditFile, auditURL 
 }
 
 // ParseFlags парсит флаги командной строки и переменные окружения.
+// Переменные окружения имеют приоритет над флагами.
+// Поддерживаемые флаги:
+//
+//	-a: адрес сервера (по умолчанию ":8080")
+//	-b: базовый URL (по умолчанию "http://localhost:8080")
+//	-f: путь к файлу хранилища
+//	-d: DSN для PostgreSQL
+//	-audit-file: путь к файлу аудита
+//	-audit-url: URL удаленного сервера аудита
+//
+// Поддерживаемые переменные окружения:
+//
+//	SERVER_ADDRESS, BASE_URL, FILE_STORAGE_PATH, DATABASE_DSN, AUDIT_FILE, AUDIT_URL
 func ParseFlags() Config {
 	serverAddr := flag.String("a", ":8080", "HTTP server address (e.g. localhost:8888)")
 	baseURL := flag.String("b", "http://localhost:8080", "base URL")

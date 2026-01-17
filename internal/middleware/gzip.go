@@ -20,6 +20,7 @@ var gzipReaderPool = sync.Pool{
 	},
 }
 
+// gzipReader предоставляет возможность чтения gzip-сжатых данных с переиспользованием пула объектов.
 type gzipReader struct {
 	r  io.ReadCloser
 	zr *gzip.Reader
@@ -55,6 +56,8 @@ func (c *gzipReader) Close() error {
 	return err
 }
 
+// gzipWriterWithContentType обертка над http.ResponseWriter с поддержкой gzip-сжатия.
+// Автоматически определяет, нужно ли сжимать ответ на основе Content-Type.
 type gzipWriterWithContentType struct {
 	http.ResponseWriter
 	gzipWriter     *gzip.Writer
@@ -113,6 +116,9 @@ func (w *gzipWriterWithContentType) Write(b []byte) (int, error) {
 }
 
 // Gzipping - мидлвар для gzip-сжатия и распаковки HTTP-запросов/ответов.
+// Автоматически распаковывает тело запроса, если оно сжато gzip.
+// Сжимает ответ, если клиент поддерживает gzip (заголовок Accept-Encoding).
+// Применяется только для application/json и text/html контента.
 func Gzipping(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		supportsGzip := strings.Contains(r.Header.Get("Accept-Encoding"), "gzip")

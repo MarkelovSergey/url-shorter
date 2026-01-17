@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// handler содержит зависимости для обработки HTTP-запросов.
 type handler struct {
 	config            config.Config
 	urlShorterService urlshorterservice.URLShorterService
@@ -16,7 +17,8 @@ type handler struct {
 	auditPublisher    audit.Publisher
 }
 
-// New создает новый экземпляр обработчика.
+// New создает новый экземпляр обработчика с заданными зависимостями.
+// Возвращает указатель на handler, который содержит методы для обработки HTTP-запросов.
 func New(
 	config config.Config,
 	urlShorterService urlshorterservice.URLShorterService,

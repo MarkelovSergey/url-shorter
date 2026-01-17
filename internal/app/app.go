@@ -28,6 +28,8 @@ import (
 )
 
 // App представляет основное приложение сервиса сокращения URL.
+// Содержит HTTP-сервер, пул подключений к базе данных,
+// логгер и публикатор событий аудита.
 type App struct {
 	server         *http.Server
 	dbPool         *pgxpool.Pool
@@ -36,6 +38,8 @@ type App struct {
 }
 
 // New создает новый экземпляр приложения с заданной конфигурацией.
+// Инициализирует все компоненты: хранилище, сервисы, хендлеры и мидлвары.
+// Выполняет миграции базы данных и настраивает систему аудита.
 func New(cfg config.Config) *App {
 	var (
 		pool       *pgxpool.Pool
@@ -125,6 +129,8 @@ func New(cfg config.Config) *App {
 }
 
 // Run запускает HTTP-сервер приложения и ожидает сигнал завершения.
+// Сервер корректно завершается по сигналам SIGINT или SIGTERM.
+// Закрывает все ресурсы (соединения с БД, логгер, аудит) перед выходом.
 func (a *App) Run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
