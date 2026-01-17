@@ -24,6 +24,14 @@ const (
 	charset             = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-"
 )
 
+var shortCodePool = sync.Pool{
+	New: func() any {
+		b := make([]byte, shortCodeLength)
+
+		return &b
+	},
+}
+
 type URLShorterService interface {
 	GetOriginalURL(ctx context.Context, id string) (string, error)
 	Generate(ctx context.Context, url, userID string) (string, error)
@@ -158,11 +166,15 @@ func (s *urlShorterService) generateRandomShortCode() string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	b := make([]byte, shortCodeLength)
+	bufPtr := shortCodePool.Get().(*[]byte)
+	b := *bufPtr
 	charsetLen := len(charset)
 	for i := range b {
 		b[i] = charset[s.rng.Intn(charsetLen)]
 	}
 
-	return string(b)
+	result := string(b)
+	shortCodePool.Put(bufPtr)
+
+	return result
 }

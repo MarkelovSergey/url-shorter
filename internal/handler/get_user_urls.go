@@ -13,7 +13,7 @@ func (h *handler) GetUserURLsHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok || userID == "" {
 		w.WriteHeader(http.StatusUnauthorized)
-		
+
 		return
 	}
 
@@ -27,7 +27,7 @@ func (h *handler) GetUserURLsHandler(w http.ResponseWriter, r *http.Request) {
 
 	if len(records) == 0 {
 		w.WriteHeader(http.StatusNoContent)
-		
+
 		return
 	}
 

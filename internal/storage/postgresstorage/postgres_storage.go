@@ -107,7 +107,7 @@ func (ps *postgresStorage) FindByShortURL(ctx context.Context, shortURL string) 
 		originalURL string
 		isDeleted   bool
 	)
-	
+
 	err := ps.pool.QueryRow(
 		ctx,
 		"SELECT original_url, COALESCE(is_deleted, false) FROM urls WHERE short_url = $1",

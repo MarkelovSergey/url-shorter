@@ -38,7 +38,7 @@ func Auth(next http.Handler) http.Handler {
 			tokenString, err := generateJWT(userID)
 			if err != nil {
 				http.Error(w, "Failed to generate token", http.StatusInternalServerError)
-				
+
 				return
 			}
 

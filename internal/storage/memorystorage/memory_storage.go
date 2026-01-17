@@ -10,7 +10,7 @@ import (
 )
 
 type memoryStorage struct {
-	mu               sync.RWMutex
+	mu               *sync.RWMutex
 	records          []model.URLRecord
 	shortURLIndex    map[string]int
 	originalURLIndex map[string]int
@@ -18,6 +18,7 @@ type memoryStorage struct {
 
 func New() storage.Storage {
 	return &memoryStorage{
+		mu:               &sync.RWMutex{},
 		records:          make([]model.URLRecord, 0),
 		shortURLIndex:    make(map[string]int),
 		originalURLIndex: make(map[string]int),
@@ -86,6 +87,7 @@ func (ms *memoryStorage) FindByShortURL(ctx context.Context, shortURL string) (s
 		if record.IsDeleted {
 			return "", repository.ErrDeleted
 		}
+
 		return record.OriginalURL, nil
 	}
 
@@ -96,7 +98,14 @@ func (ms *memoryStorage) FindByUserID(ctx context.Context, userID string) ([]mod
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
 
-	result := make([]model.URLRecord, 0)
+	count := 0
+	for _, record := range ms.records {
+		if record.UserID == userID {
+			count++
+		}
+	}
+
+	result := make([]model.URLRecord, 0, count)
 	for _, record := range ms.records {
 		if record.UserID == userID {
 			result = append(result, record)
@@ -109,11 +118,6 @@ func (ms *memoryStorage) FindByUserID(ctx context.Context, userID string) ([]mod
 func (ms *memoryStorage) DeleteBatch(ctx context.Context, shortURLs []string, userID string) error {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
-
-	urlsMap := make(map[string]struct{}, len(shortURLs))
-	for _, url := range shortURLs {
-		urlsMap[url] = struct{}{}
-	}
 
 	for _, url := range shortURLs {
 		if idx, ok := ms.shortURLIndex[url]; ok {

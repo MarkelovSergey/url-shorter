@@ -56,6 +56,6 @@ func (ho *HTTPObserver) OnEvent(event Event) error {
 
 func (ho *HTTPObserver) Close() error {
 	ho.client.CloseIdleConnections()
-	
+
 	return nil
 }

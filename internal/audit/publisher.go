@@ -1,21 +1,22 @@
 package audit
 
 import (
+	"slices"
 	"sync"
 
 	"go.uber.org/zap"
-	"slices"
 )
 
 type AuditPublisher struct {
 	observers []Observer
-	mu        sync.RWMutex
+	mu        *sync.RWMutex
 	logger    *zap.Logger
 }
 
 func NewPublisher(logger *zap.Logger) *AuditPublisher {
 	return &AuditPublisher{
 		observers: make([]Observer, 0),
+		mu:        &sync.RWMutex{},
 		logger:    logger,
 	}
 }

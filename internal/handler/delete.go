@@ -24,7 +24,7 @@ func (h *handler) DeleteURLsHandler(w http.ResponseWriter, r *http.Request) {
 
 	if len(shortURLs) == 0 {
 		w.WriteHeader(http.StatusBadRequest)
-		
+
 		return
 	}
 

@@ -21,7 +21,7 @@ func (rw *ResponseWriterLogger) WriteHeader(statusCode int) {
 func (rw *ResponseWriterLogger) Write(b []byte) (int, error) {
 	n, err := rw.ResponseWriter.Write(b)
 	rw.size += n
-	
+
 	return n, err
 }
 
