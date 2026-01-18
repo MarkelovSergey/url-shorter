@@ -141,7 +141,7 @@ func TestCreateBatchHandler(t *testing.T) {
 
 func TestCreateBatchHandlerServiceError(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-cfg := config.Config{
+	cfg := config.Config{
 		Server: config.ServerConfig{
 			BaseURL: "http://localhost:8080",
 		},
