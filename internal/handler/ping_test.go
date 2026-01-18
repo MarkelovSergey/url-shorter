@@ -61,7 +61,7 @@ func TestPingHandler(t *testing.T) {
 
 			test.mockSetup(mockHealthService)
 
-			req := httptest.NewRequest(test.method, cfg.ServerAddress+"/ping", nil)
+			req := httptest.NewRequest(test.method, cfg.Server.Address+"/ping", nil)
 			w := httptest.NewRecorder()
 
 			mockAuditPublisher := audit.NewMockPublisher()

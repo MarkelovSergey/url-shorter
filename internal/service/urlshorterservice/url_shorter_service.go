@@ -122,7 +122,7 @@ func (s *urlShorterService) Generate(ctx context.Context, url, userID string) (s
 // Возвращает срез коротких кодов в том же порядке, что и входные URL.
 func (s *urlShorterService) GenerateBatch(ctx context.Context, urls []string, userID string) ([]string, error) {
 	if len(urls) == 0 {
-		return []string{}, nil
+		return nil, nil
 	}
 
 	urlMap := make(map[string]string, len(urls))

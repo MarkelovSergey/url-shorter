@@ -60,7 +60,7 @@ func (h *handler) CreateAPIHandler(w http.ResponseWriter, r *http.Request) {
 
 	us, err := h.urlShorterService.Generate(r.Context(), req.URL, userID)
 
-	shortURL, joinErr := url.JoinPath(h.config.BaseURL, us)
+	shortURL, joinErr := url.JoinPath(h.config.Server.BaseURL, us)
 	if joinErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("invalid URL format"))

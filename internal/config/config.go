@@ -15,31 +15,63 @@ const (
 	auditURLEnv        = "AUDIT_URL"
 )
 
-// Config содержит настройки приложения.
-type Config struct {
-	// ServerAddress - адрес HTTP-сервера (например, ":8080" или "localhost:8888")
-	ServerAddress string
+// ServerConfig содержит настройки HTTP-сервера.
+type ServerConfig struct {
+	// Address - адрес HTTP-сервера (например, ":8080" или "localhost:8888")
+	Address string
 	// BaseURL - базовый URL для создания коротких ссылок (например, "http://localhost:8080")
 	BaseURL string
-	// FileStoragePath - путь к файлу для хранения URL (если не используется PostgreSQL)
-	FileStoragePath string
-	// DatabaseDSN - строка подключения к PostgreSQL (если задана, используется вместо файлового хранилища)
-	DatabaseDSN string
-	// AuditFile - путь к файлу для записи событий аудита
-	AuditFile string
-	// AuditURL - URL удаленного сервера для отправки событий аудита
-	AuditURL string
+}
+
+// StorageConfig содержит настройки хранилища данных.
+type StorageConfig struct {
+	// FilePath - путь к файлу для хранения URL (если не используется PostgreSQL)
+	FilePath string
+}
+
+// DatabaseConfig содержит настройки подключения к базе данных.
+type DatabaseConfig struct {
+	// DSN - строка подключения к PostgreSQL (если задана, используется вместо файлового хранилища)
+	DSN string
+}
+
+// AuditConfig содержит настройки системы аудита.
+type AuditConfig struct {
+	// FilePath - путь к файлу для записи событий аудита
+	FilePath string
+	// URL - URL удаленного сервера для отправки событий аудита
+	URL string
+}
+
+// Config содержит настройки приложения.
+type Config struct {
+	// Server - настройки HTTP-сервера
+	Server ServerConfig
+	// Storage - настройки файлового хранилища
+	Storage StorageConfig
+	// Database - настройки подключения к базе данных
+	Database DatabaseConfig
+	// Audit - настройки системы аудита
+	Audit AuditConfig
 }
 
 // New создает новый экземпляр конфигурации с заданными параметрами.
 func New(serverAddr, baseURL, fileStoragePath, databaseDSN, auditFile, auditURL string) Config {
 	return Config{
-		ServerAddress:   serverAddr,
-		BaseURL:         baseURL,
-		FileStoragePath: fileStoragePath,
-		DatabaseDSN:     databaseDSN,
-		AuditFile:       auditFile,
-		AuditURL:        auditURL,
+		Server: ServerConfig{
+			Address: serverAddr,
+			BaseURL: baseURL,
+		},
+		Storage: StorageConfig{
+			FilePath: fileStoragePath,
+		},
+		Database: DatabaseConfig{
+			DSN: databaseDSN,
+		},
+		Audit: AuditConfig{
+			FilePath: auditFile,
+			URL:      auditURL,
+		},
 	}
 }
 

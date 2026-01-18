@@ -38,8 +38,11 @@ func setupHandler() Handler {
 	repo := urlshorterrepository.New(storage)
 	service := urlshorterservice.New(repo, nil, logger)
 	cfg := config.Config{
-		BaseURL: "http://localhost:8080",
+		Server: config.ServerConfig{
+			BaseURL: "http://localhost:8080",
+		},
 	}
+
 	auditPublisher := audit.NewPublisher(logger)
 
 	h := handler.New(cfg, service, nil, logger, auditPublisher)

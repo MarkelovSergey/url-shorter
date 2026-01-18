@@ -27,8 +27,11 @@ func setupBenchmarkHandler() *handler {
 	repo := urlshorterrepository.New(storage)
 	service := urlshorterservice.New(repo, nil, logger)
 	cfg := config.Config{
-		BaseURL: "http://localhost:8080",
+		Server: config.ServerConfig{
+			BaseURL: "http://localhost:8080",
+		},
 	}
+
 	auditPublisher := audit.NewPublisher(logger)
 
 	h := New(cfg, service, nil, logger, auditPublisher)
@@ -88,7 +91,9 @@ func BenchmarkReadHandler(b *testing.B) {
 	}
 
 	cfg := config.Config{
-		BaseURL: "http://localhost:8080",
+		Server: config.ServerConfig{
+			BaseURL: "http://localhost:8080",
+		},
 	}
 	auditPublisher := audit.NewPublisher(logger)
 	h := New(cfg, service, nil, logger, auditPublisher)

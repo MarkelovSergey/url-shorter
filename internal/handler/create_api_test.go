@@ -35,7 +35,7 @@ func TestCreateAPIHandler(t *testing.T) {
 	originalURL := "https://practicum.yandex.ru"
 	shortID := "test"
 
-	expectedShortURL, err := url.JoinPath(cfg.BaseURL, shortID)
+	expectedShortURL, err := url.JoinPath(cfg.Server.BaseURL, shortID)
 	if err != nil {
 		t.Fatalf("Failed to join URL paths: %v", err)
 	}
@@ -118,7 +118,7 @@ func TestCreateAPIHandler(t *testing.T) {
 
 			req := httptest.NewRequest(
 				test.method,
-				cfg.ServerAddress+"/api/shorten",
+				cfg.Server.Address+"/api/shorten",
 				strings.NewReader(test.body),
 			)
 

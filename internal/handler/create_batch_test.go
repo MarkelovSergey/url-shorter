@@ -21,7 +21,9 @@ import (
 func TestCreateBatchHandler(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	cfg := config.Config{
-		BaseURL: "http://localhost:8080",
+		Server: config.ServerConfig{
+			BaseURL: "http://localhost:8080",
+		},
 	}
 
 	tests := []struct {
@@ -139,8 +141,10 @@ func TestCreateBatchHandler(t *testing.T) {
 
 func TestCreateBatchHandlerServiceError(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	cfg := config.Config{
-		BaseURL: "http://localhost:8080",
+cfg := config.Config{
+		Server: config.ServerConfig{
+			BaseURL: "http://localhost:8080",
+		},
 	}
 
 	mockURLShorterService := new(urlshorterservice.MockURLShorterService)

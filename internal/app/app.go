@@ -52,12 +52,12 @@ func New(cfg config.Config) *App {
 		log.Fatalf("Failed to initialize logger: %v", err)
 	}
 
-	if cfg.DatabaseDSN != "" {
-		if err := migration.RunMigrations(cfg.DatabaseDSN); err != nil {
+	if cfg.Database.DSN != "" {
+		if err := migration.RunMigrations(cfg.Database.DSN); err != nil {
 			log.Fatalf("Warning: Failed to run migrations: %v", err)
 		}
 
-		pool, err = pgxpool.New(context.Background(), cfg.DatabaseDSN)
+		pool, err = pgxpool.New(context.Background(), cfg.Database.DSN)
 		if err != nil {
 			log.Fatalf("Warning: Failed to connect to database: %v", err)
 		}
@@ -66,9 +66,9 @@ func New(cfg config.Config) *App {
 		log.Println("Using PostgreSQL storage")
 	}
 
-	if urlStorage == nil && cfg.FileStoragePath != "" {
-		urlStorage = filestorage.New(cfg.FileStoragePath)
-		log.Printf("Using file storage: %s", cfg.FileStoragePath)
+	if urlStorage == nil && cfg.Storage.FilePath != "" {
+		urlStorage = filestorage.New(cfg.Storage.FilePath)
+		log.Printf("Using file storage: %s", cfg.Storage.FilePath)
 	}
 
 	if urlStorage == nil {
@@ -85,20 +85,20 @@ func New(cfg config.Config) *App {
 	// Инициализация системы аудита
 	auditPublisher := audit.NewPublisher(logger)
 
-	if cfg.AuditFile != "" {
-		fileObserver, err := audit.NewFileObserver(cfg.AuditFile, logger)
+	if cfg.Audit.FilePath != "" {
+		fileObserver, err := audit.NewFileObserver(cfg.Audit.FilePath, logger)
 		if err != nil {
 			log.Printf("Warning: Failed to create file audit observer: %v", err)
 		} else {
 			auditPublisher.Subscribe(fileObserver)
-			log.Printf("Audit file observer enabled: %s", cfg.AuditFile)
+			log.Printf("Audit file observer enabled: %s", cfg.Audit.FilePath)
 		}
 	}
 
-	if cfg.AuditURL != "" {
-		httpObserver := audit.NewHTTPObserver(cfg.AuditURL, logger)
+	if cfg.Audit.URL != "" {
+		httpObserver := audit.NewHTTPObserver(cfg.Audit.URL, logger)
 		auditPublisher.Subscribe(httpObserver)
-		log.Printf("Audit HTTP observer enabled: %s", cfg.AuditURL)
+		log.Printf("Audit HTTP observer enabled: %s", cfg.Audit.URL)
 	}
 
 	handler := handler.New(cfg, urlShorterService, healthService, logger, auditPublisher)
@@ -116,7 +116,7 @@ func New(cfg config.Config) *App {
 	r.Get("/ping", handler.PingHandler)
 
 	srv := &http.Server{
-		Addr:    cfg.ServerAddress,
+		Addr:    cfg.Server.Address,
 		Handler: r,
 	}
 

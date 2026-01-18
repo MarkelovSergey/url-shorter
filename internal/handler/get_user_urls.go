@@ -34,7 +34,7 @@ func (h *handler) GetUserURLsHandler(w http.ResponseWriter, r *http.Request) {
 
 	response := make([]model.UserURLResponse, 0, len(records))
 	for _, record := range records {
-		shortURL, err := url.JoinPath(h.config.BaseURL, record.ShortURL)
+		shortURL, err := url.JoinPath(h.config.Server.BaseURL, record.ShortURL)
 		if err != nil {
 			h.logger.Error("Failed to join URL: " + err.Error())
 

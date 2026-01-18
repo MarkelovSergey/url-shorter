@@ -33,7 +33,7 @@ func TestCreateHandler(t *testing.T) {
 	originalURL := "https://practicum.yandex.ru"
 	shortID := "test"
 
-	expectedShortURL, err := url.JoinPath(cfg.BaseURL, shortID)
+	expectedShortURL, err := url.JoinPath(cfg.Server.BaseURL, shortID)
 	if err != nil {
 		t.Fatalf("Failed to join URL paths: %v", err)
 	}
@@ -105,7 +105,7 @@ func TestCreateHandler(t *testing.T) {
 
 			test.mockSetup(mockService)
 
-			req := httptest.NewRequest(test.method, cfg.ServerAddress, strings.NewReader(test.body))
+			req := httptest.NewRequest(test.method, cfg.Server.Address, strings.NewReader(test.body))
 			req.Header.Set("Content-Type", test.contentType)
 
 			ctx := middleware.SetUserID(req.Context(), "test-user-123")
