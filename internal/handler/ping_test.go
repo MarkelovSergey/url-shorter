@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/MarkelovSergey/url-shorter/internal/audit"
 	"github.com/MarkelovSergey/url-shorter/internal/config"
 	"github.com/MarkelovSergey/url-shorter/internal/service/healthservice"
 	"github.com/MarkelovSergey/url-shorter/internal/service/urlshorterservice"
@@ -22,6 +23,8 @@ func TestPingHandler(t *testing.T) {
 		"http://localhost:8080",
 		"/var/lib/url-shorter/short-url-db.json",
 		"postgres://postgres:password@host.docker.internal:5432/postgres",
+		"",
+		"",
 	)
 
 	tests := []struct {
@@ -58,10 +61,11 @@ func TestPingHandler(t *testing.T) {
 
 			test.mockSetup(mockHealthService)
 
-			req := httptest.NewRequest(test.method, cfg.ServerAddress+"/ping", nil)
+			req := httptest.NewRequest(test.method, cfg.Server.Address+"/ping", nil)
 			w := httptest.NewRecorder()
 
-			h := New(cfg, mockURLShorterService, mockHealthService, logger)
+			mockAuditPublisher := audit.NewMockPublisher()
+			h := New(cfg, mockURLShorterService, mockHealthService, logger, mockAuditPublisher)
 			h.PingHandler(w, req)
 
 			assert.Equal(t, test.expectedStatus, w.Code)

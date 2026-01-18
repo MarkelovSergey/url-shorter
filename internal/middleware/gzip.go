@@ -5,16 +5,31 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 )
 
+var gzipWriterPool = sync.Pool{
+	New: func() any {
+		return gzip.NewWriter(io.Discard)
+	},
+}
+
+var gzipReaderPool = sync.Pool{
+	New: func() any {
+		return new(gzip.Reader)
+	},
+}
+
+// gzipReader предоставляет возможность чтения gzip-сжатых данных с переиспользованием пула объектов.
 type gzipReader struct {
 	r  io.ReadCloser
 	zr *gzip.Reader
 }
 
 func newGzipReader(r io.ReadCloser) (*gzipReader, error) {
-	zr, err := gzip.NewReader(r)
-	if err != nil {
+	zr := gzipReaderPool.Get().(*gzip.Reader)
+	if err := zr.Reset(r); err != nil {
+		gzipReaderPool.Put(zr)
 		return nil, err
 	}
 
@@ -24,18 +39,25 @@ func newGzipReader(r io.ReadCloser) (*gzipReader, error) {
 	}, nil
 }
 
+// Read читает распакованные данные.
 func (c gzipReader) Read(p []byte) (n int, err error) {
 	return c.zr.Read(p)
 }
 
+// Close закрывает gzip-ридер и возвращает его в пул.
 func (c *gzipReader) Close() error {
-	if err := c.r.Close(); err != nil {
-		return err
+	err := c.zr.Close()
+	gzipReaderPool.Put(c.zr)
+
+	if closeErr := c.r.Close(); closeErr != nil && err == nil {
+		err = closeErr
 	}
 
-	return c.zr.Close()
+	return err
 }
 
+// gzipWriterWithContentType обертка над http.ResponseWriter с поддержкой gzip-сжатия.
+// Автоматически определяет, нужно ли сжимать ответ на основе Content-Type.
 type gzipWriterWithContentType struct {
 	http.ResponseWriter
 	gzipWriter     *gzip.Writer
@@ -44,13 +66,16 @@ type gzipWriterWithContentType struct {
 	gzipEnabled    bool
 }
 
+// WriteHeader записывает HTTP-заголовок с поддержкой gzip.
 func (w *gzipWriterWithContentType) WriteHeader(statusCode int) {
 	if !w.headerWritten {
 		contentType := w.ResponseWriter.Header().Get("Content-Type")
 		w.gzipEnabled = w.shouldCompress(contentType)
 
 		if w.gzipEnabled {
-			w.gzipWriter = gzip.NewWriter(w.ResponseWriter)
+			gzw := gzipWriterPool.Get().(*gzip.Writer)
+			gzw.Reset(w.ResponseWriter)
+			w.gzipWriter = gzw
 			w.ResponseWriter.Header().Set("Content-Encoding", "gzip")
 			w.ResponseWriter.Header().Del("Content-Length")
 		}
@@ -61,6 +86,7 @@ func (w *gzipWriterWithContentType) WriteHeader(statusCode int) {
 	w.ResponseWriter.WriteHeader(statusCode)
 }
 
+// Write записывает данные с возможной gzip-компрессией.
 func (w *gzipWriterWithContentType) Write(b []byte) (int, error) {
 	if !w.headerWritten {
 		contentType := w.ResponseWriter.Header().Get("Content-Type")
@@ -72,7 +98,9 @@ func (w *gzipWriterWithContentType) Write(b []byte) (int, error) {
 		w.gzipEnabled = w.shouldCompress(contentType)
 
 		if w.gzipEnabled {
-			w.gzipWriter = gzip.NewWriter(w.ResponseWriter)
+			gzw := gzipWriterPool.Get().(*gzip.Writer)
+			gzw.Reset(w.ResponseWriter)
+			w.gzipWriter = gzw
 			w.ResponseWriter.Header().Set("Content-Encoding", "gzip")
 			w.ResponseWriter.Header().Del("Content-Length")
 		}
@@ -87,6 +115,10 @@ func (w *gzipWriterWithContentType) Write(b []byte) (int, error) {
 	return w.ResponseWriter.Write(b)
 }
 
+// Gzipping - мидлвар для gzip-сжатия и распаковки HTTP-запросов/ответов.
+// Автоматически распаковывает тело запроса, если оно сжато gzip.
+// Сжимает ответ, если клиент поддерживает gzip (заголовок Accept-Encoding).
+// Применяется только для application/json и text/html контента.
 func Gzipping(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		supportsGzip := strings.Contains(r.Header.Get("Accept-Encoding"), "gzip")
@@ -113,6 +145,7 @@ func Gzipping(next http.Handler) http.Handler {
 
 			if gzw.gzipWriter != nil {
 				gzw.gzipWriter.Close()
+				gzipWriterPool.Put(gzw.gzipWriter)
 			}
 
 			return

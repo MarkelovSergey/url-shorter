@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/MarkelovSergey/url-shorter/internal/audit"
 	"github.com/MarkelovSergey/url-shorter/internal/config"
 	"github.com/MarkelovSergey/url-shorter/internal/handler"
 	"github.com/MarkelovSergey/url-shorter/internal/middleware"
@@ -26,12 +27,19 @@ import (
 	"go.uber.org/zap"
 )
 
+// App представляет основное приложение сервиса сокращения URL.
+// Содержит HTTP-сервер, пул подключений к базе данных,
+// логгер и публикатор событий аудита.
 type App struct {
-	server *http.Server
-	dbPool *pgxpool.Pool
-	logger *zap.Logger
+	server         *http.Server
+	dbPool         *pgxpool.Pool
+	logger         *zap.Logger
+	auditPublisher *audit.AuditPublisher
 }
 
+// New создает новый экземпляр приложения с заданной конфигурацией.
+// Инициализирует все компоненты: хранилище, сервисы, хендлеры и мидлвары.
+// Выполняет миграции базы данных и настраивает систему аудита.
 func New(cfg config.Config) *App {
 	var (
 		pool       *pgxpool.Pool
@@ -44,12 +52,12 @@ func New(cfg config.Config) *App {
 		log.Fatalf("Failed to initialize logger: %v", err)
 	}
 
-	if cfg.DatabaseDSN != "" {
-		if err := migration.RunMigrations(cfg.DatabaseDSN); err != nil {
+	if cfg.Database.DSN != "" {
+		if err := migration.RunMigrations(cfg.Database.DSN); err != nil {
 			log.Fatalf("Warning: Failed to run migrations: %v", err)
 		}
 
-		pool, err = pgxpool.New(context.Background(), cfg.DatabaseDSN)
+		pool, err = pgxpool.New(context.Background(), cfg.Database.DSN)
 		if err != nil {
 			log.Fatalf("Warning: Failed to connect to database: %v", err)
 		}
@@ -58,9 +66,9 @@ func New(cfg config.Config) *App {
 		log.Println("Using PostgreSQL storage")
 	}
 
-	if urlStorage == nil && cfg.FileStoragePath != "" {
-		urlStorage = filestorage.New(cfg.FileStoragePath)
-		log.Printf("Using file storage: %s", cfg.FileStoragePath)
+	if urlStorage == nil && cfg.Storage.FilePath != "" {
+		urlStorage = filestorage.New(cfg.Storage.FilePath)
+		log.Printf("Using file storage: %s", cfg.Storage.FilePath)
 	}
 
 	if urlStorage == nil {
@@ -74,7 +82,26 @@ func New(cfg config.Config) *App {
 	healthService := healthservice.New(healthRepo)
 	urlShorterService := urlshorterservice.New(urlShorterRepo, healthRepo, logger)
 
-	handler := handler.New(cfg, urlShorterService, healthService, logger)
+	// Инициализация системы аудита
+	auditPublisher := audit.NewPublisher(logger)
+
+	if cfg.Audit.FilePath != "" {
+		fileObserver, err := audit.NewFileObserver(cfg.Audit.FilePath, logger)
+		if err != nil {
+			log.Printf("Warning: Failed to create file audit observer: %v", err)
+		} else {
+			auditPublisher.Subscribe(fileObserver)
+			log.Printf("Audit file observer enabled: %s", cfg.Audit.FilePath)
+		}
+	}
+
+	if cfg.Audit.URL != "" {
+		httpObserver := audit.NewHTTPObserver(cfg.Audit.URL, logger)
+		auditPublisher.Subscribe(httpObserver)
+		log.Printf("Audit HTTP observer enabled: %s", cfg.Audit.URL)
+	}
+
+	handler := handler.New(cfg, urlShorterService, healthService, logger, auditPublisher)
 	r := chi.NewRouter()
 	r.Use(middleware.Logging(logger))
 	r.Use(middleware.Gzipping)
@@ -89,17 +116,21 @@ func New(cfg config.Config) *App {
 	r.Get("/ping", handler.PingHandler)
 
 	srv := &http.Server{
-		Addr:    cfg.ServerAddress,
+		Addr:    cfg.Server.Address,
 		Handler: r,
 	}
 
 	return &App{
-		server: srv,
-		dbPool: pool,
-		logger: logger,
+		server:         srv,
+		dbPool:         pool,
+		logger:         logger,
+		auditPublisher: auditPublisher,
 	}
 }
 
+// Run запускает HTTP-сервер приложения и ожидает сигнал завершения.
+// Сервер корректно завершается по сигналам SIGINT или SIGTERM.
+// Закрывает все ресурсы (соединения с БД, логгер, аудит) перед выходом.
 func (a *App) Run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -124,6 +155,9 @@ func (a *App) Run() error {
 
 	if a.dbPool != nil {
 		a.dbPool.Close()
+	}
+	if a.auditPublisher != nil {
+		a.auditPublisher.Close()
 	}
 	if a.logger != nil {
 		a.logger.Sync()

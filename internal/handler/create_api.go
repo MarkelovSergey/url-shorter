@@ -8,12 +8,14 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/MarkelovSergey/url-shorter/internal/audit"
 	"github.com/MarkelovSergey/url-shorter/internal/middleware"
 	"github.com/MarkelovSergey/url-shorter/internal/model"
 	"github.com/MarkelovSergey/url-shorter/internal/service"
 	"go.uber.org/zap"
 )
 
+// CreateAPIHandler обрабатывает JSON-запрос на создание короткой ссылки.
 func (h *handler) CreateAPIHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("Content-Type") != "application/json" {
 		w.WriteHeader(http.StatusBadRequest)
@@ -58,7 +60,7 @@ func (h *handler) CreateAPIHandler(w http.ResponseWriter, r *http.Request) {
 
 	us, err := h.urlShorterService.Generate(r.Context(), req.URL, userID)
 
-	shortURL, joinErr := url.JoinPath(h.config.BaseURL, us)
+	shortURL, joinErr := url.JoinPath(h.config.Server.BaseURL, us)
 	if joinErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("invalid URL format"))
@@ -88,6 +90,8 @@ func (h *handler) CreateAPIHandler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusConflict)
 			w.Write(jsonResp)
 
+			h.auditPublisher.Publish(audit.NewEvent(audit.ActionShorten, req.URL, &userID))
+
 			return
 		}
 
@@ -99,4 +103,6 @@ func (h *handler) CreateAPIHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusCreated)
 	w.Write(jsonResp)
+
+	h.auditPublisher.Publish(audit.NewEvent(audit.ActionShorten, req.URL, &userID))
 }

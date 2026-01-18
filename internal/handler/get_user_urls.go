@@ -9,11 +9,12 @@ import (
 	"github.com/MarkelovSergey/url-shorter/internal/model"
 )
 
+// GetUserURLsHandler обрабатывает запрос на получение списка URL пользователя.
 func (h *handler) GetUserURLsHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok || userID == "" {
 		w.WriteHeader(http.StatusUnauthorized)
-		
+
 		return
 	}
 
@@ -27,13 +28,13 @@ func (h *handler) GetUserURLsHandler(w http.ResponseWriter, r *http.Request) {
 
 	if len(records) == 0 {
 		w.WriteHeader(http.StatusNoContent)
-		
+
 		return
 	}
 
 	response := make([]model.UserURLResponse, 0, len(records))
 	for _, record := range records {
-		shortURL, err := url.JoinPath(h.config.BaseURL, record.ShortURL)
+		shortURL, err := url.JoinPath(h.config.Server.BaseURL, record.ShortURL)
 		if err != nil {
 			h.logger.Error("Failed to join URL: " + err.Error())
 

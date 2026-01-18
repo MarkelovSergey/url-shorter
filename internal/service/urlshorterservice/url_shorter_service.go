@@ -1,7 +1,10 @@
+// Package urlshorterservice содержит бизнес-логику сокращения URL.
 package urlshorterservice
 
 import (
 	"context"
+	cryptorand "crypto/rand"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -22,6 +25,17 @@ const (
 	charset             = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-"
 )
 
+var shortCodePool = sync.Pool{
+	New: func() any {
+		b := make([]byte, shortCodeLength)
+
+		return &b
+	},
+}
+
+// URLShorterService определяет интерфейс сервиса сокращения URL.
+// Предоставляет методы для генерации коротких кодов, получения оригинальных URL
+// и управления URL пользователя.
 type URLShorterService interface {
 	GetOriginalURL(ctx context.Context, id string) (string, error)
 	Generate(ctx context.Context, url, userID string) (string, error)
@@ -34,20 +48,33 @@ type urlShorterService struct {
 	urlShorterRepo urlshorterrepository.URLShorterRepository
 	healthRepo     healthrepository.HealthRepository
 	logger         *zap.Logger
+	rng            *rand.Rand
+	mu             *sync.Mutex
 }
 
+// New создает новый экземпляр URLShorterService.
 func New(
 	urlShorterRepo urlshorterrepository.URLShorterRepository,
 	healthRepo healthrepository.HealthRepository,
 	logger *zap.Logger,
 ) URLShorterService {
+	var seed int64
+	if err := binary.Read(cryptorand.Reader, binary.BigEndian, &seed); err != nil {
+		seed = time.Now().UnixNano()
+	}
+
 	return &urlShorterService{
-		urlShorterRepo,
-		healthRepo,
-		logger,
+		urlShorterRepo: urlShorterRepo,
+		healthRepo:     healthRepo,
+		logger:         logger,
+		rng:            rand.New(rand.NewSource(seed)),
+		mu:             &sync.Mutex{},
 	}
 }
 
+// GetOriginalURL возвращает оригинальный URL по короткому коду.
+// Возвращает service.ErrURLDeleted, если URL был удален.
+// Возвращает service.ErrFindShortCode, если код не найден.
 func (s *urlShorterService) GetOriginalURL(ctx context.Context, shortCode string) (string, error) {
 	url, err := s.urlShorterRepo.Find(ctx, shortCode)
 	if err != nil {
@@ -64,6 +91,9 @@ func (s *urlShorterService) GetOriginalURL(ctx context.Context, shortCode string
 	return url, nil
 }
 
+// Generate генерирует короткий код для URL.
+// Выполняет до maxGenerateAttempts попыток генерации уникального кода.
+// Возвращает service.ErrURLConflict, если URL уже существует в базе.
 func (s *urlShorterService) Generate(ctx context.Context, url, userID string) (string, error) {
 	for i := 0; i < maxGenerateAttempts; i++ {
 		candidate := s.generateRandomShortCode()
@@ -87,12 +117,15 @@ func (s *urlShorterService) Generate(ctx context.Context, url, userID string) (s
 		fmt.Errorf("%w after %d attempts", service.ErrGenerateShortCode, maxGenerateAttempts)
 }
 
+// GenerateBatch генерирует короткие коды для нескольких URL.
+// Оптимизирована для пакетной обработки - все URL сохраняются за один запрос.
+// Возвращает срез коротких кодов в том же порядке, что и входные URL.
 func (s *urlShorterService) GenerateBatch(ctx context.Context, urls []string, userID string) ([]string, error) {
 	if len(urls) == 0 {
-		return []string{}, nil
+		return nil, nil
 	}
 
-	urlMap := make(map[string]string, 0)
+	urlMap := make(map[string]string, len(urls))
 	for _, url := range urls {
 		for i := 0; i < maxGenerateAttempts; i++ {
 			candidate := s.generateRandomShortCode()
@@ -112,10 +145,15 @@ func (s *urlShorterService) GenerateBatch(ctx context.Context, urls []string, us
 	return shortCodes, nil
 }
 
+// GetUserURLs возвращает все URL пользователя.
+// Включает как активные, так и удаленные URL.
 func (s *urlShorterService) GetUserURLs(ctx context.Context, userID string) ([]model.URLRecord, error) {
 	return s.urlShorterRepo.GetUserURLs(ctx, userID)
 }
 
+// DeleteURLsAsync асинхронно удаляет URL.
+// Запускает удаление в отдельной горутине и немедленно возвращает управление.
+// URL не удаляются физически, а помечаются как удаленные.
 func (s *urlShorterService) DeleteURLsAsync(shortURLs []string, userID string) {
 	go s.deleteURLsAsyncWorker(shortURLs, userID)
 }
@@ -128,7 +166,7 @@ func (s *urlShorterService) deleteURLsAsyncWorker(shortURLs []string, userID str
 	var wg sync.WaitGroup
 
 	for i := 0; i < len(shortURLs); i += batchSize {
-		end := min(i + batchSize, len(shortURLs))
+		end := min(i+batchSize, len(shortURLs))
 
 		batch := shortURLs[i:end]
 		wg.Add(1)
@@ -144,10 +182,18 @@ func (s *urlShorterService) deleteURLsAsyncWorker(shortURLs []string, userID str
 }
 
 func (s *urlShorterService) generateRandomShortCode() string {
-	b := make([]byte, shortCodeLength)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	bufPtr := shortCodePool.Get().(*[]byte)
+	b := *bufPtr
+	charsetLen := len(charset)
 	for i := range b {
-		b[i] = charset[rand.Intn(len(charset))]
+		b[i] = charset[s.rng.Intn(charsetLen)]
 	}
 
-	return string(b)
+	result := string(b)
+	shortCodePool.Put(bufPtr)
+
+	return result
 }

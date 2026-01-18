@@ -1,3 +1,4 @@
+// Package handler содержит HTTP-обработчики для API сокращения URL.
 package handler
 
 import (
@@ -7,10 +8,12 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/MarkelovSergey/url-shorter/internal/audit"
 	"github.com/MarkelovSergey/url-shorter/internal/middleware"
 	"github.com/MarkelovSergey/url-shorter/internal/service"
 )
 
+// CreateHandler обрабатывает запрос на создание короткой ссылки в формате text/plain.
 func (h *handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("Content-Type") != "text/plain" {
 		w.WriteHeader(http.StatusBadRequest)
@@ -48,7 +51,7 @@ func (h *handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 
 	us, err := h.urlShorterService.Generate(r.Context(), u, userID)
 
-	shortURL, joinErr := url.JoinPath(h.config.BaseURL, us)
+	shortURL, joinErr := url.JoinPath(h.config.Server.BaseURL, us)
 	if joinErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("invalid URL format"))
@@ -61,6 +64,8 @@ func (h *handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusConflict)
 			w.Write([]byte(shortURL))
 
+			h.auditPublisher.Publish(audit.NewEvent(audit.ActionShorten, u, &userID))
+
 			return
 		}
 
@@ -72,4 +77,6 @@ func (h *handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte(shortURL))
+
+	h.auditPublisher.Publish(audit.NewEvent(audit.ActionShorten, u, &userID))
 }

@@ -1,3 +1,4 @@
+// Package storage содержит интерфейс и реализации хранилища.
 package storage
 
 import (
@@ -6,6 +7,7 @@ import (
 	"github.com/MarkelovSergey/url-shorter/internal/model"
 )
 
+// Storage определяет интерфейс хранилища URL.
 type Storage interface {
 	Load(ctx context.Context) ([]model.URLRecord, error)
 	Append(ctx context.Context, record model.URLRecord) error

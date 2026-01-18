@@ -205,8 +205,7 @@ func TestFileStorageAppend(t *testing.T) {
 			storage := New(testFilePath)
 
 			if len(tt.existingData) > 0 {
-				fs := storage.(*fileStorage)
-				err := fs.save(tt.existingData)
+				err := storage.save(tt.existingData)
 				require.NoError(t, err)
 			}
 
@@ -366,8 +365,7 @@ func TestFileStorageAppendBatch(t *testing.T) {
 			storage := New(testFilePath)
 
 			if len(tt.existingData) > 0 {
-				fs := storage.(*fileStorage)
-				err := fs.save(tt.existingData)
+				err := storage.save(tt.existingData)
 				require.NoError(t, err)
 			}
 

@@ -1,3 +1,4 @@
+// Package middleware содержит HTTP-мидлвары для обработки запросов.
 package middleware
 
 import (
@@ -17,11 +18,13 @@ type contextKey string
 
 const userIDKey contextKey = "userID"
 
+// UserClaims содержит данные пользователя для JWT-токена.
 type UserClaims struct {
 	UserID string `json:"user_id"`
 	jwt.RegisteredClaims
 }
 
+// Auth - мидлвар для аутентификации пользователей через JWT.
 func Auth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var userID string
@@ -38,7 +41,7 @@ func Auth(next http.Handler) http.Handler {
 			tokenString, err := generateJWT(userID)
 			if err != nil {
 				http.Error(w, "Failed to generate token", http.StatusInternalServerError)
-				
+
 				return
 			}
 
@@ -55,12 +58,14 @@ func Auth(next http.Handler) http.Handler {
 	})
 }
 
+// GetUserID извлекает ID пользователя из контекста.
 func GetUserID(ctx context.Context) (string, bool) {
 	userID, ok := ctx.Value(userIDKey).(string)
 
 	return userID, ok
 }
 
+// SetUserID устанавливает ID пользователя в контекст.
 func SetUserID(ctx context.Context, userID string) context.Context {
 	return context.WithValue(ctx, userIDKey, userID)
 }

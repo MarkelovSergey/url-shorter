@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/MarkelovSergey/url-shorter/internal/audit"
 	"github.com/MarkelovSergey/url-shorter/internal/config"
 	"github.com/MarkelovSergey/url-shorter/internal/middleware"
 	"github.com/MarkelovSergey/url-shorter/internal/model"
@@ -20,7 +21,9 @@ import (
 func TestCreateBatchHandler(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	cfg := config.Config{
-		BaseURL: "http://localhost:8080",
+		Server: config.ServerConfig{
+			BaseURL: "http://localhost:8080",
+		},
 	}
 
 	tests := []struct {
@@ -99,7 +102,8 @@ func TestCreateBatchHandler(t *testing.T) {
 
 			test.mockSetup(mockURLShorterService)
 
-			h := New(cfg, mockURLShorterService, mockHealthService, logger)
+			mockAuditPublisher := audit.NewMockPublisher()
+			h := New(cfg, mockURLShorterService, mockHealthService, logger, mockAuditPublisher)
 
 			var body []byte
 			var err error
@@ -112,11 +116,11 @@ func TestCreateBatchHandler(t *testing.T) {
 
 			req := httptest.NewRequest(http.MethodPost, "/api/shorten/batch", bytes.NewReader(body))
 			req.Header.Set("Content-Type", test.contentType)
-			
+
 			// Add userID to context
 			ctx := middleware.SetUserID(req.Context(), "test-user-123")
 			req = req.WithContext(ctx)
-			
+
 			w := httptest.NewRecorder()
 
 			h.CreateBatchHandler(w, req)
@@ -138,7 +142,9 @@ func TestCreateBatchHandler(t *testing.T) {
 func TestCreateBatchHandlerServiceError(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	cfg := config.Config{
-		BaseURL: "http://localhost:8080",
+		Server: config.ServerConfig{
+			BaseURL: "http://localhost:8080",
+		},
 	}
 
 	mockURLShorterService := new(urlshorterservice.MockURLShorterService)
@@ -146,7 +152,8 @@ func TestCreateBatchHandlerServiceError(t *testing.T) {
 
 	mockURLShorterService.EXPECT().GenerateBatch(mock.Anything, mock.Anything, mock.Anything).Return([]string{}, assert.AnError)
 
-	h := New(cfg, mockURLShorterService, mockHealthService, logger)
+	mockAuditPublisher := audit.NewMockPublisher()
+	h := New(cfg, mockURLShorterService, mockHealthService, logger, mockAuditPublisher)
 
 	requestBody := []model.BatchRequest{
 		{CorrelationID: "1", OriginalURL: "https://example.com"},
@@ -155,10 +162,10 @@ func TestCreateBatchHandlerServiceError(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/api/shorten/batch", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	
+
 	ctx := middleware.SetUserID(req.Context(), "test-user-123")
 	req = req.WithContext(ctx)
-	
+
 	w := httptest.NewRecorder()
 
 	h.CreateBatchHandler(w, req)

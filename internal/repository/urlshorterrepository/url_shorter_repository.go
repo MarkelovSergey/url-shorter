@@ -1,3 +1,4 @@
+// Package urlshorterrepository содержит репозиторий для работы с короткими ссылками.
 package urlshorterrepository
 
 import (
@@ -11,6 +12,7 @@ import (
 	"github.com/MarkelovSergey/url-shorter/internal/storage"
 )
 
+// URLShorterRepository определяет интерфейс для работы с сокращенными URL.
 type URLShorterRepository interface {
 	Add(ctx context.Context, shortCode, url, userID string) (string, error)
 	Find(ctx context.Context, shortCode string) (string, error)
@@ -25,6 +27,7 @@ type urlShorterRepository struct {
 	counter int
 }
 
+// New создает новый экземпляр URLShorterRepository.
 func New(storage storage.Storage) URLShorterRepository {
 	repo := &urlShorterRepository{
 		mu:      &sync.Mutex{},
@@ -44,6 +47,7 @@ func New(storage storage.Storage) URLShorterRepository {
 	return repo
 }
 
+// Add добавляет новый URL в хранилище.
 func (r *urlShorterRepository) Add(ctx context.Context, shortCode, url, userID string) (string, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -78,6 +82,7 @@ func (r *urlShorterRepository) Add(ctx context.Context, shortCode, url, userID s
 	return shortCode, nil
 }
 
+// Find находит оригинальный URL по короткому коду.
 func (r *urlShorterRepository) Find(ctx context.Context, shortCode string) (string, error) {
 	originalURL, err := r.storage.FindByShortURL(ctx, shortCode)
 	if err != nil {
@@ -91,6 +96,7 @@ func (r *urlShorterRepository) Find(ctx context.Context, shortCode string) (stri
 	return originalURL, nil
 }
 
+// AddBatch добавляет несколько URL в хранилище пакетно.
 func (r *urlShorterRepository) AddBatch(ctx context.Context, urls map[string]string, userID string) ([]string, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -132,10 +138,16 @@ func (r *urlShorterRepository) AddBatch(ctx context.Context, urls map[string]str
 	return shortCodes, nil
 }
 
+// GetUserURLs возвращает все URL пользователя.
 func (r *urlShorterRepository) GetUserURLs(ctx context.Context, userID string) ([]model.URLRecord, error) {
 	return r.storage.FindByUserID(ctx, userID)
 }
 
+// DeleteBatch удаляет несколько URL пакетно.
 func (r *urlShorterRepository) DeleteBatch(ctx context.Context, shortURLs []string, userID string) error {
+	if len(shortURLs) == 0 {
+		return nil
+	}
+
 	return r.storage.DeleteBatch(ctx, shortURLs, userID)
 }

@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/MarkelovSergey/url-shorter/internal/audit"
 	"github.com/MarkelovSergey/url-shorter/internal/config"
 	"github.com/MarkelovSergey/url-shorter/internal/middleware"
 	"github.com/MarkelovSergey/url-shorter/internal/service/healthservice"
@@ -23,6 +24,8 @@ func TestDeleteURLsHandler(t *testing.T) {
 		"http://localhost:8080",
 		"/var/lib/url-shorter/short-url-db.json",
 		"postgres://postgres:password@host.docker.internal:5432/postgres",
+		"",
+		"",
 	)
 
 	userID := "test-user-123"
@@ -124,7 +127,8 @@ func TestDeleteURLsHandler(t *testing.T) {
 
 			w := httptest.NewRecorder()
 
-			h := New(cfg, mockService, mockHealthService, logger)
+			mockAuditPublisher := audit.NewMockPublisher()
+			h := New(cfg, mockService, mockHealthService, logger, mockAuditPublisher)
 			h.DeleteURLsHandler(w, req)
 
 			assert.Equal(t, test.expectedStatus, w.Code)
