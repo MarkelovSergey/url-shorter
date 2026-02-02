@@ -33,8 +33,8 @@ func main() {
 	pkgs := map[string][]*structInfo{}
 
 	// Сканируем все директории и ищем структуры с // generate:reset
-	filepath.Walk(projectRoot, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() || !strings.HasSuffix(path, goFileSuffix) || strings.HasSuffix(path, genFileSuffix) || strings.HasSuffix(path, testFileSuffix) {
+	filepath.WalkDir(projectRoot, func(path string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() || !strings.HasSuffix(path, goFileSuffix) || strings.HasSuffix(path, genFileSuffix) || strings.HasSuffix(path, testFileSuffix) {
 			return nil
 		}
 
