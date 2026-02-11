@@ -2,6 +2,7 @@
 package config
 
 import (
+	"encoding/json"
 	"flag"
 	"os"
 )
@@ -14,7 +15,26 @@ const (
 	auditFileEnv       = "AUDIT_FILE"
 	auditURLEnv        = "AUDIT_URL"
 	enableHTTPSEnv     = "ENABLE_HTTPS"
+	configFileEnv      = "CONFIG"
 )
+
+// JSONConfig представляет структуру JSON файла конфигурации.
+type JSONConfig struct {
+	// ServerAddress - адрес HTTP-сервера (аналог -a или SERVER_ADDRESS)
+	ServerAddress string `json:"server_address,omitempty"`
+	// BaseURL - базовый URL для создания коротких ссылок (аналог -b или BASE_URL)
+	BaseURL string `json:"base_url,omitempty"`
+	// FileStoragePath - путь к файлу для хранения URL (аналог -f или FILE_STORAGE_PATH)
+	FileStoragePath string `json:"file_storage_path,omitempty"`
+	// DatabaseDSN - строка подключения к PostgreSQL (аналог -d или DATABASE_DSN)
+	DatabaseDSN string `json:"database_dsn,omitempty"`
+	// EnableHTTPS - включает HTTPS-сервер вместо HTTP (аналог -s или ENABLE_HTTPS)
+	EnableHTTPS *bool `json:"enable_https,omitempty"`
+	// AuditFile - путь к файлу для записи событий аудита (аналог -audit-file или AUDIT_FILE)
+	AuditFile string `json:"audit_file,omitempty"`
+	// AuditURL - URL удаленного сервера для отправки событий аудита (аналог -audit-url или AUDIT_URL)
+	AuditURL string `json:"audit_url,omitempty"`
+}
 
 // ServerConfig содержит настройки HTTP-сервера.
 type ServerConfig struct {
@@ -79,62 +99,126 @@ func New(serverAddr, baseURL, fileStoragePath, databaseDSN, auditFile, auditURL 
 	}
 }
 
+// loadJSONConfig загружает конфигурацию из JSON файла.
+// Возвращает nil, если файл не существует или произошла ошибка.
+func loadJSONConfig(filePath string) *JSONConfig {
+	if filePath == "" {
+		return nil
+	}
+
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		// Файл не существует или не может быть прочитан - это нормально
+		return nil
+	}
+
+	var cfg JSONConfig
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		// Ошибка парсинга JSON - игнорируем
+		return nil
+	}
+
+	return &cfg
+}
+
 // ParseFlags парсит флаги командной строки и переменные окружения.
-// Переменные окружения имеют приоритет над флагами.
+// Приоритет (от низкого к высокому):
+//  1. Значения по умолчанию флагов
+//  2. Значения из JSON файла конфигурации (если указан через -c/-config или CONFIG)
+//  3. Переменные окружения
+//  4. Флаги командной строки
+//
 // Поддерживаемые флаги:
 //
 //	-a: адрес сервера (по умолчанию ":8080")
 //	-b: базовый URL (по умолчанию "http://localhost:8080")
 //	-f: путь к файлу хранилища
-//	-d: DSN для PostgreSQL
+//	-d: : DSN для PostgreSQL
 //	-s: включить HTTPS сервер
+//	-c / --config: путь к файлу конфигурации в формате JSON
 //	-audit-file: путь к файлу аудита
 //	-audit-url: URL удаленного сервера аудита
 //
 // Поддерживаемые переменные окружения:
 //
-//	SERVER_ADDRESS, BASE_URL, FILE_STORAGE_PATH, DATABASE_DSN, ENABLE_HTTPS, AUDIT_FILE, AUDIT_URL
+//	SERVER_ADDRESS, BASE_URL, FILE_STORAGE_PATH, DATABASE_DSN, ENABLE_HTTPS, CONFIG, AUDIT_FILE, AUDIT_URL
 func ParseFlags() Config {
 	serverAddr := flag.String("a", ":8080", "HTTP server address (e.g. localhost:8888)")
 	baseURL := flag.String("b", "http://localhost:8080", "base URL")
-	fileStoragePath := flag.String("f", "/var/lib/url-shorter/short-url-db.json", "file storage path")
+	configFile := flag.String("c", "", "path to JSON config file")
 	databaseDSN := flag.String("d", "", "database connection string")
+	fileStoragePath := flag.String("f", "/var/lib/url-shorter/short-url-db.json", "file storage path")
+	enableHTTPS := flag.Bool("s", false, "enable HTTPS server")
 	auditFile := flag.String("audit-file", "", "path to audit log file")
 	auditURL := flag.String("audit-url", "", "URL of remote audit server")
-	enableHTTPS := flag.Bool("s", false, "enable HTTPS server")
+	flag.StringVar(configFile, "config", "", "path to JSON config file")
 	flag.Parse()
 
+	// Начинаем со значений по умолчанию из флагов
 	finalServerAddr := *serverAddr
+	finalBaseURL := *baseURL
+	finalFileStoragePath := *fileStoragePath
+	finalDatabaseDSN := *databaseDSN
+	finalAuditFile := *auditFile
+	finalAuditURL := *auditURL
+	finalEnableHTTPS := *enableHTTPS
+
+	// Определяем путь к конфигурационному файлу (переменная окружения имеет приоритет)
+	configPath := *configFile
+	if envConfigPath, ok := os.LookupEnv(configFileEnv); ok {
+		configPath = envConfigPath
+	}
+
+	// Загружаем JSON конфигурацию (если указана)
+	if jsonCfg := loadJSONConfig(configPath); jsonCfg != nil {
+		if jsonCfg.ServerAddress != "" {
+			finalServerAddr = jsonCfg.ServerAddress
+		}
+		if jsonCfg.BaseURL != "" {
+			finalBaseURL = jsonCfg.BaseURL
+		}
+		if jsonCfg.FileStoragePath != "" {
+			finalFileStoragePath = jsonCfg.FileStoragePath
+		}
+		if jsonCfg.DatabaseDSN != "" {
+			finalDatabaseDSN = jsonCfg.DatabaseDSN
+		}
+		if jsonCfg.AuditFile != "" {
+			finalAuditFile = jsonCfg.AuditFile
+		}
+		if jsonCfg.AuditURL != "" {
+			finalAuditURL = jsonCfg.AuditURL
+		}
+		if jsonCfg.EnableHTTPS != nil {
+			finalEnableHTTPS = *jsonCfg.EnableHTTPS
+		}
+	}
+
+	// Применяем переменные окружения (наивысший приоритет)
 	if envServerAddr, ok := os.LookupEnv(serverAddressEnv); ok {
 		finalServerAddr = envServerAddr
 	}
 
-	finalBaseURL := *baseURL
 	if envBaseURL, ok := os.LookupEnv(baseURLEnv); ok {
 		finalBaseURL = envBaseURL
 	}
 
-	finalFileStoragePath := *fileStoragePath
 	if envFileStoragePath, ok := os.LookupEnv(fileStoragePathEnv); ok {
 		finalFileStoragePath = envFileStoragePath
 	}
 
-	finalDatabaseDSN := *databaseDSN
 	if envDatabaseDSN, ok := os.LookupEnv(databaseDSNEnv); ok {
 		finalDatabaseDSN = envDatabaseDSN
 	}
 
-	finalAuditFile := *auditFile
 	if envAuditFile, ok := os.LookupEnv(auditFileEnv); ok {
 		finalAuditFile = envAuditFile
 	}
 
-	finalAuditURL := *auditURL
 	if envAuditURL, ok := os.LookupEnv(auditURLEnv); ok {
 		finalAuditURL = envAuditURL
 	}
 
-	finalEnableHTTPS := *enableHTTPS
 	if envEnableHTTPS, ok := os.LookupEnv(enableHTTPSEnv); ok {
 		finalEnableHTTPS = envEnableHTTPS == "true" || envEnableHTTPS == "1"
 	}
