@@ -139,10 +139,10 @@ func New(cfg config.Config) *App {
 }
 
 // Run запускает HTTP-сервер приложения и ожидает сигнал завершения.
-// Сервер корректно завершается по сигналам SIGINT или SIGTERM.
+// Сервер корректно завершается по сигналам SIGINT, SIGTERM или SIGQUIT.
 // Закрывает все ресурсы (соединения с БД, логгер, аудит) перед выходом.
 func (a *App) Run() error {
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	defer stop()
 
 	go func() {
