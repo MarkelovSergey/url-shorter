@@ -13,6 +13,7 @@ const (
 	databaseDSNEnv     = "DATABASE_DSN"
 	auditFileEnv       = "AUDIT_FILE"
 	auditURLEnv        = "AUDIT_URL"
+	enableHTTPSEnv     = "ENABLE_HTTPS"
 )
 
 // ServerConfig содержит настройки HTTP-сервера.
@@ -21,6 +22,8 @@ type ServerConfig struct {
 	Address string
 	// BaseURL - базовый URL для создания коротких ссылок (например, "http://localhost:8080")
 	BaseURL string
+	// EnableHTTPS - включает HTTPS-сервер вместо HTTP
+	EnableHTTPS bool
 }
 
 // StorageConfig содержит настройки хранилища данных.
@@ -56,11 +59,12 @@ type Config struct {
 }
 
 // New создает новый экземпляр конфигурации с заданными параметрами.
-func New(serverAddr, baseURL, fileStoragePath, databaseDSN, auditFile, auditURL string) Config {
+func New(serverAddr, baseURL, fileStoragePath, databaseDSN, auditFile, auditURL string, enableHTTPS bool) Config {
 	return Config{
 		Server: ServerConfig{
-			Address: serverAddr,
-			BaseURL: baseURL,
+			Address:     serverAddr,
+			BaseURL:     baseURL,
+			EnableHTTPS: enableHTTPS,
 		},
 		Storage: StorageConfig{
 			FilePath: fileStoragePath,
@@ -83,12 +87,13 @@ func New(serverAddr, baseURL, fileStoragePath, databaseDSN, auditFile, auditURL 
 //	-b: базовый URL (по умолчанию "http://localhost:8080")
 //	-f: путь к файлу хранилища
 //	-d: DSN для PostgreSQL
+//	-s: включить HTTPS сервер
 //	-audit-file: путь к файлу аудита
 //	-audit-url: URL удаленного сервера аудита
 //
 // Поддерживаемые переменные окружения:
 //
-//	SERVER_ADDRESS, BASE_URL, FILE_STORAGE_PATH, DATABASE_DSN, AUDIT_FILE, AUDIT_URL
+//	SERVER_ADDRESS, BASE_URL, FILE_STORAGE_PATH, DATABASE_DSN, ENABLE_HTTPS, AUDIT_FILE, AUDIT_URL
 func ParseFlags() Config {
 	serverAddr := flag.String("a", ":8080", "HTTP server address (e.g. localhost:8888)")
 	baseURL := flag.String("b", "http://localhost:8080", "base URL")
@@ -96,6 +101,7 @@ func ParseFlags() Config {
 	databaseDSN := flag.String("d", "", "database connection string")
 	auditFile := flag.String("audit-file", "", "path to audit log file")
 	auditURL := flag.String("audit-url", "", "URL of remote audit server")
+	enableHTTPS := flag.Bool("s", false, "enable HTTPS server")
 	flag.Parse()
 
 	finalServerAddr := *serverAddr
@@ -128,5 +134,10 @@ func ParseFlags() Config {
 		finalAuditURL = envAuditURL
 	}
 
-	return New(finalServerAddr, finalBaseURL, finalFileStoragePath, finalDatabaseDSN, finalAuditFile, finalAuditURL)
+	finalEnableHTTPS := *enableHTTPS
+	if envEnableHTTPS, ok := os.LookupEnv(enableHTTPSEnv); ok {
+		finalEnableHTTPS = envEnableHTTPS == "true" || envEnableHTTPS == "1"
+	}
+
+	return New(finalServerAddr, finalBaseURL, finalFileStoragePath, finalDatabaseDSN, finalAuditFile, finalAuditURL, finalEnableHTTPS)
 }

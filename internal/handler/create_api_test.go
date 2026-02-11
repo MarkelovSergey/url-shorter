@@ -30,6 +30,7 @@ func TestCreateAPIHandler(t *testing.T) {
 		"postgres://postgres:password@host.docker.internal:5432/postgres",
 		"",
 		"",
+		false,
 	)
 
 	originalURL := "https://practicum.yandex.ru"

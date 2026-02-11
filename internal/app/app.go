@@ -2,8 +2,16 @@ package app
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"fmt"
 	"log"
+	"math/big"
+	"net"
 	"net/http"
 	"os/signal"
 	"syscall"
@@ -35,6 +43,7 @@ type App struct {
 	dbPool         *pgxpool.Pool
 	logger         *zap.Logger
 	auditPublisher *audit.AuditPublisher
+	config         config.Config
 }
 
 // New создает новый экземпляр приложения с заданной конфигурацией.
@@ -125,6 +134,7 @@ func New(cfg config.Config) *App {
 		dbPool:         pool,
 		logger:         logger,
 		auditPublisher: auditPublisher,
+		config:         cfg,
 	}
 }
 
@@ -136,9 +146,16 @@ func (a *App) Run() error {
 	defer stop()
 
 	go func() {
-		log.Printf("Server is starting on %s", a.server.Addr)
-		if err := a.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Printf("Server failed to start: %v", err)
+		if a.config.Server.EnableHTTPS {
+			log.Printf("HTTPS server is starting on %s", a.server.Addr)
+			if err := a.startTLSServer(); err != nil && err != http.ErrServerClosed {
+				log.Printf("HTTPS server failed to start: %v", err)
+			}
+		} else {
+			log.Printf("Server is starting on %s", a.server.Addr)
+			if err := a.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				log.Printf("Server failed to start: %v", err)
+			}
 		}
 	}()
 
@@ -166,4 +183,61 @@ func (a *App) Run() error {
 	log.Println("Server exited gracefully")
 
 	return nil
+}
+
+// startTLSServer запускает HTTPS-сервер с самоподписанным сертификатом.
+func (a *App) startTLSServer() error {
+	cert, err := generateSelfSignedCert()
+	if err != nil {
+		return fmt.Errorf("failed to generate self-signed certificate: %w", err)
+	}
+
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		MinVersion:   tls.VersionTLS12,
+	}
+
+	listener, err := tls.Listen("tcp", a.server.Addr, tlsConfig)
+	if err != nil {
+		return fmt.Errorf("failed to create TLS listener: %w", err)
+	}
+
+	return a.server.Serve(listener)
+}
+
+// generateSelfSignedCert генерирует самоподписанный TLS сертификат.
+func generateSelfSignedCert() (tls.Certificate, error) {
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return tls.Certificate{}, fmt.Errorf("failed to generate private key: %w", err)
+	}
+
+	serialNumber, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
+	if err != nil {
+		return tls.Certificate{}, fmt.Errorf("failed to generate serial number: %w", err)
+	}
+
+	template := x509.Certificate{
+		SerialNumber: serialNumber,
+		Subject: pkix.Name{
+			Organization: []string{"URL Shortener"},
+		},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().Add(365 * 24 * time.Hour),
+		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+		IPAddresses:           []net.IP{net.ParseIP("127.0.0.1")},
+		DNSNames:              []string{"localhost"},
+	}
+
+	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &privateKey.PublicKey, privateKey)
+	if err != nil {
+		return tls.Certificate{}, fmt.Errorf("failed to create certificate: %w", err)
+	}
+
+	return tls.Certificate{
+		Certificate: [][]byte{derBytes},
+		PrivateKey:  privateKey,
+	}, nil
 }
