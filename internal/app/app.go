@@ -145,6 +145,10 @@ func (a *App) Run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	defer stop()
 
+	a.server.BaseContext = func(_ net.Listener) context.Context {
+		return ctx
+	}
+
 	go func() {
 		if a.config.Server.EnableHTTPS {
 			log.Printf("HTTPS server is starting on %s", a.server.Addr)
