@@ -123,6 +123,7 @@ func New(cfg config.Config) *App {
 	r.Get("/api/user/urls", handler.GetUserURLsHandler)
 	r.Delete("/api/user/urls", handler.DeleteURLsHandler)
 	r.Get("/ping", handler.PingHandler)
+	r.Get("/api/internal/stats", handler.StatsHandler)
 
 	srv := &http.Server{
 		Addr:    cfg.Server.Address,
