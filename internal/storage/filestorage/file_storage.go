@@ -147,6 +147,27 @@ func (fs *FileStorage) DeleteBatch(ctx context.Context, shortURLs []string, user
 	return fs.save(records)
 }
 
+// Stats возвращает количество сокращённых URL и уникальных пользователей.
+func (fs *FileStorage) Stats(ctx context.Context) (int, int, error) {
+	records, err := fs.Load(ctx)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	userSet := make(map[string]struct{})
+	urlCount := 0
+	for _, record := range records {
+		if !record.IsDeleted {
+			urlCount++
+		}
+		if record.UserID != "" {
+			userSet[record.UserID] = struct{}{}
+		}
+	}
+
+	return urlCount, len(userSet), nil
+}
+
 func (fs *FileStorage) save(records []model.URLRecord) error {
 	dir := filepath.Dir(fs.filePath)
 	if err := os.MkdirAll(dir, 0755); err != nil {

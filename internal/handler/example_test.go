@@ -44,6 +44,7 @@ func newExampleTestSetup() *exampleTestSetup {
 		"postgres://postgres:password@localhost:5432/postgres",
 		"",
 		"",
+		"",
 		false,
 	)
 	logger := zap.NewNop()

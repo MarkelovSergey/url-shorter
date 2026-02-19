@@ -201,6 +201,20 @@ func (m *mockStorageForBenchmark) DeleteBatch(ctx context.Context, shortURLs []s
 	return nil
 }
 
+func (m *mockStorageForBenchmark) Stats(ctx context.Context) (int, int, error) {
+	userSet := make(map[string]struct{})
+	urlCount := 0
+	for _, r := range m.records {
+		if !r.IsDeleted {
+			urlCount++
+		}
+		if r.UserID != "" {
+			userSet[r.UserID] = struct{}{}
+		}
+	}
+	return urlCount, len(userSet), nil
+}
+
 func BenchmarkRepositoryFindWithMapStorage(b *testing.B) {
 	storage := newMockStorage()
 	repo := New(storage)

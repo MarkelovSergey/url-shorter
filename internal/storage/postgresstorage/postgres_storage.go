@@ -162,6 +162,19 @@ func (ps *PostgresStorage) FindByUserID(ctx context.Context, userID string) ([]m
 	return records, nil
 }
 
+// Stats возвращает количество сокращённых URL и уникальных пользователей.
+func (ps *PostgresStorage) Stats(ctx context.Context) (int, int, error) {
+	var urlCount, userCount int
+	err := ps.pool.QueryRow(ctx,
+		"SELECT COUNT(*) FILTER (WHERE NOT COALESCE(is_deleted, false)), COUNT(DISTINCT user_id) FILTER (WHERE user_id IS NOT NULL AND user_id != '') FROM urls",
+	).Scan(&urlCount, &userCount)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	return urlCount, userCount, nil
+}
+
 // DeleteBatch удаляет несколько URL пакетно.
 func (ps *PostgresStorage) DeleteBatch(ctx context.Context, shortURLs []string, userID string) error {
 	batch := &pgx.Batch{}

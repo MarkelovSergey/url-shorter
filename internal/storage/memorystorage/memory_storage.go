@@ -138,3 +138,22 @@ func (ms *MemoryStorage) DeleteBatch(ctx context.Context, shortURLs []string, us
 
 	return nil
 }
+
+// Stats возвращает количество сокращённых URL и уникальных пользователей.
+func (ms *MemoryStorage) Stats(ctx context.Context) (int, int, error) {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
+
+	userSet := make(map[string]struct{})
+	urlCount := 0
+	for _, record := range ms.records {
+		if !record.IsDeleted {
+			urlCount++
+		}
+		if record.UserID != "" {
+			userSet[record.UserID] = struct{}{}
+		}
+	}
+
+	return urlCount, len(userSet), nil
+}

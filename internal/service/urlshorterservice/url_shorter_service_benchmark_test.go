@@ -151,6 +151,10 @@ func (m *mockStorage) DeleteBatch(ctx context.Context, shortURLs []string, userI
 	return nil
 }
 
+func (m *mockStorage) Stats(ctx context.Context) (int, int, error) {
+	return 0, 0, nil
+}
+
 func BenchmarkGenerateRandomShortCodeOnly(b *testing.B) {
 	logger := zap.NewNop()
 	repo := urlshorterrepository.New(&mockStorage{})

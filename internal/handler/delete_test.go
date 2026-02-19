@@ -26,6 +26,7 @@ func TestDeleteURLsHandler(t *testing.T) {
 		"postgres://postgres:password@host.docker.internal:5432/postgres",
 		"",
 		"",
+		"",
 		false,
 	)
 

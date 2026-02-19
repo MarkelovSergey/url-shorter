@@ -84,69 +84,6 @@ func (_c *MockURLShorterService_DeleteURLsAsync_Call) RunAndReturn(run func(shor
 	return _c
 }
 
-// DeleteURLsBatch provides a mock function for the type MockURLShorterService
-func (_mock *MockURLShorterService) DeleteURLsBatch(ctx context.Context, shortURLs []string, userID string) error {
-	ret := _mock.Called(ctx, shortURLs, userID)
-
-	if len(ret) == 0 {
-		panic("no return value specified for DeleteURLsBatch")
-	}
-
-	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, []string, string) error); ok {
-		r0 = returnFunc(ctx, shortURLs, userID)
-	} else {
-		r0 = ret.Error(0)
-	}
-	return r0
-}
-
-// MockURLShorterService_DeleteURLsBatch_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteURLsBatch'
-type MockURLShorterService_DeleteURLsBatch_Call struct {
-	*mock.Call
-}
-
-// DeleteURLsBatch is a helper method to define mock.On call
-//   - ctx context.Context
-//   - shortURLs []string
-//   - userID string
-func (_e *MockURLShorterService_Expecter) DeleteURLsBatch(ctx interface{}, shortURLs interface{}, userID interface{}) *MockURLShorterService_DeleteURLsBatch_Call {
-	return &MockURLShorterService_DeleteURLsBatch_Call{Call: _e.mock.On("DeleteURLsBatch", ctx, shortURLs, userID)}
-}
-
-func (_c *MockURLShorterService_DeleteURLsBatch_Call) Run(run func(ctx context.Context, shortURLs []string, userID string)) *MockURLShorterService_DeleteURLsBatch_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 context.Context
-		if args[0] != nil {
-			arg0 = args[0].(context.Context)
-		}
-		var arg1 []string
-		if args[1] != nil {
-			arg1 = args[1].([]string)
-		}
-		var arg2 string
-		if args[2] != nil {
-			arg2 = args[2].(string)
-		}
-		run(
-			arg0,
-			arg1,
-			arg2,
-		)
-	})
-	return _c
-}
-
-func (_c *MockURLShorterService_DeleteURLsBatch_Call) Return(err error) *MockURLShorterService_DeleteURLsBatch_Call {
-	_c.Call.Return(err)
-	return _c
-}
-
-func (_c *MockURLShorterService_DeleteURLsBatch_Call) RunAndReturn(run func(ctx context.Context, shortURLs []string, userID string) error) *MockURLShorterService_DeleteURLsBatch_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // Generate provides a mock function for the type MockURLShorterService
 func (_mock *MockURLShorterService) Generate(ctx context.Context, url string, userID string) (string, error) {
 	ret := _mock.Called(ctx, url, userID)
@@ -355,6 +292,72 @@ func (_c *MockURLShorterService_GetOriginalURL_Call) Return(s string, err error)
 }
 
 func (_c *MockURLShorterService_GetOriginalURL_Call) RunAndReturn(run func(ctx context.Context, id string) (string, error)) *MockURLShorterService_GetOriginalURL_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetStats provides a mock function for the type MockURLShorterService
+func (_mock *MockURLShorterService) GetStats(ctx context.Context) (int, int, error) {
+	ret := _mock.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetStats")
+	}
+
+	var r0 int
+	var r1 int
+	var r2 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) (int, int, error)); ok {
+		return returnFunc(ctx)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context) int); ok {
+		r0 = returnFunc(ctx)
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context) int); ok {
+		r1 = returnFunc(ctx)
+	} else {
+		r1 = ret.Get(1).(int)
+	}
+	if returnFunc, ok := ret.Get(2).(func(context.Context) error); ok {
+		r2 = returnFunc(ctx)
+	} else {
+		r2 = ret.Error(2)
+	}
+	return r0, r1, r2
+}
+
+// MockURLShorterService_GetStats_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetStats'
+type MockURLShorterService_GetStats_Call struct {
+	*mock.Call
+}
+
+// GetStats is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockURLShorterService_Expecter) GetStats(ctx interface{}) *MockURLShorterService_GetStats_Call {
+	return &MockURLShorterService_GetStats_Call{Call: _e.mock.On("GetStats", ctx)}
+}
+
+func (_c *MockURLShorterService_GetStats_Call) Run(run func(ctx context.Context)) *MockURLShorterService_GetStats_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockURLShorterService_GetStats_Call) Return(urls int, users int, err error) *MockURLShorterService_GetStats_Call {
+	_c.Call.Return(urls, users, err)
+	return _c
+}
+
+func (_c *MockURLShorterService_GetStats_Call) RunAndReturn(run func(ctx context.Context) (int, int, error)) *MockURLShorterService_GetStats_Call {
 	_c.Call.Return(run)
 	return _c
 }
