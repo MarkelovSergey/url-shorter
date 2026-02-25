@@ -31,6 +31,7 @@ func TestCreateAPIHandler(t *testing.T) {
 		"",
 		"",
 		"",
+		"",
 		false,
 	)
 	originalURL := "https://practicum.yandex.ru"
