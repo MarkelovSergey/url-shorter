@@ -27,6 +27,7 @@ func TestDeleteURLsHandler(t *testing.T) {
 		"",
 		"",
 		"",
+		"",
 		false,
 	)
 

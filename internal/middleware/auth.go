@@ -5,6 +5,7 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/MarkelovSergey/url-shorter/internal/model"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
@@ -17,12 +18,6 @@ const (
 type contextKey string
 
 const userIDKey contextKey = "userID"
-
-// UserClaims содержит данные пользователя для JWT-токена.
-type UserClaims struct {
-	UserID string `json:"user_id"`
-	jwt.RegisteredClaims
-}
 
 // Auth - мидлвар для аутентификации пользователей через JWT.
 func Auth(next http.Handler) http.Handler {
@@ -71,7 +66,7 @@ func SetUserID(ctx context.Context, userID string) context.Context {
 }
 
 func validateJWT(tokenString string) (string, bool) {
-	token, err := jwt.ParseWithClaims(tokenString, &UserClaims{}, func(token *jwt.Token) (any, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &model.UserClaims{}, func(token *jwt.Token) (any, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, jwt.ErrSignatureInvalid
 		}
@@ -83,7 +78,7 @@ func validateJWT(tokenString string) (string, bool) {
 		return "", false
 	}
 
-	if claims, ok := token.Claims.(*UserClaims); ok && token.Valid {
+	if claims, ok := token.Claims.(*model.UserClaims); ok && token.Valid {
 		return claims.UserID, true
 	}
 
@@ -91,7 +86,7 @@ func validateJWT(tokenString string) (string, bool) {
 }
 
 func generateJWT(userID string) (string, error) {
-	claims := UserClaims{
+	claims := model.UserClaims{
 		UserID: userID,
 	}
 

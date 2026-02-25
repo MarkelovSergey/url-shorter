@@ -26,6 +26,7 @@ func TestPingHandler(t *testing.T) {
 		"",
 		"",
 		"",
+		"",
 		false,
 	)
 

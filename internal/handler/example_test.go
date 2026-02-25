@@ -45,6 +45,7 @@ func newExampleTestSetup() *exampleTestSetup {
 		"",
 		"",
 		"",
+		"",
 		false,
 	)
 	logger := zap.NewNop()
