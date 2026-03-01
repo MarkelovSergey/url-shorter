@@ -3,16 +3,12 @@ package handler
 import (
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"strings"
 	"testing"
 
-	"github.com/MarkelovSergey/url-shorter/internal/audit"
 	"github.com/MarkelovSergey/url-shorter/internal/config"
 	"github.com/MarkelovSergey/url-shorter/internal/middleware"
-	"github.com/MarkelovSergey/url-shorter/internal/service"
-	"github.com/MarkelovSergey/url-shorter/internal/service/healthservice"
-	"github.com/MarkelovSergey/url-shorter/internal/service/urlshorterservice"
+	"github.com/MarkelovSergey/url-shorter/internal/usecase/urlcase"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"go.uber.org/zap"
@@ -34,19 +30,14 @@ func TestCreateHandler(t *testing.T) {
 	)
 
 	originalURL := "https://practicum.yandex.ru"
-	shortID := "test"
-
-	expectedShortURL, err := url.JoinPath(cfg.Server.BaseURL, shortID)
-	if err != nil {
-		t.Fatalf("Failed to join URL paths: %v", err)
-	}
+	expectedShortURL := "http://localhost:8080/test"
 
 	tests := []struct {
 		name           string
 		method         string
 		contentType    string
 		body           string
-		mockSetup      func(*urlshorterservice.MockURLShorterService)
+		mockSetup      func(*urlcase.MockURLUseCase)
 		expectedStatus int
 		expectedBody   string
 	}{
@@ -55,8 +46,9 @@ func TestCreateHandler(t *testing.T) {
 			method:      http.MethodPost,
 			contentType: "text/plain",
 			body:        originalURL,
-			mockSetup: func(m *urlshorterservice.MockURLShorterService) {
-				m.EXPECT().Generate(mock.Anything, originalURL, mock.Anything).Return(shortID, nil)
+			mockSetup: func(m *urlcase.MockURLUseCase) {
+				m.EXPECT().Shorten(mock.Anything, originalURL, mock.Anything).
+					Return(urlcase.ShortenResult{ShortURL: expectedShortURL}, nil)
 			},
 			expectedStatus: http.StatusCreated,
 			expectedBody:   expectedShortURL,
@@ -66,7 +58,7 @@ func TestCreateHandler(t *testing.T) {
 			method:         http.MethodPost,
 			contentType:    "application/json",
 			body:           originalURL,
-			mockSetup:      func(m *urlshorterservice.MockURLShorterService) {},
+			mockSetup:      func(m *urlcase.MockURLUseCase) {},
 			expectedStatus: http.StatusBadRequest,
 			expectedBody:   "unsupported media type",
 		},
@@ -75,7 +67,7 @@ func TestCreateHandler(t *testing.T) {
 			method:         http.MethodPost,
 			contentType:    "text/plain",
 			body:           "not-a-url",
-			mockSetup:      func(m *urlshorterservice.MockURLShorterService) {},
+			mockSetup:      func(m *urlcase.MockURLUseCase) {},
 			expectedStatus: http.StatusBadRequest,
 			expectedBody:   "url not correct",
 		},
@@ -84,7 +76,7 @@ func TestCreateHandler(t *testing.T) {
 			method:         http.MethodPost,
 			contentType:    "text/plain",
 			body:           "practicum.yandex.ru",
-			mockSetup:      func(m *urlshorterservice.MockURLShorterService) {},
+			mockSetup:      func(m *urlcase.MockURLUseCase) {},
 			expectedStatus: http.StatusBadRequest,
 			expectedBody:   "url not correct",
 		},
@@ -93,8 +85,9 @@ func TestCreateHandler(t *testing.T) {
 			method:      http.MethodPost,
 			contentType: "text/plain",
 			body:        originalURL,
-			mockSetup: func(m *urlshorterservice.MockURLShorterService) {
-				m.EXPECT().Generate(mock.Anything, originalURL, mock.Anything).Return(shortID, service.ErrURLConflict)
+			mockSetup: func(m *urlcase.MockURLUseCase) {
+				m.EXPECT().Shorten(mock.Anything, originalURL, mock.Anything).
+					Return(urlcase.ShortenResult{ShortURL: expectedShortURL, IsConflict: true}, nil)
 			},
 			expectedStatus: http.StatusConflict,
 			expectedBody:   expectedShortURL,
@@ -103,10 +96,9 @@ func TestCreateHandler(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			mockService := new(urlshorterservice.MockURLShorterService)
-			mockHealthService := new(healthservice.MockHealthService)
+			mockUseCase := new(urlcase.MockURLUseCase)
 
-			test.mockSetup(mockService)
+			test.mockSetup(mockUseCase)
 
 			req := httptest.NewRequest(test.method, cfg.Server.Address, strings.NewReader(test.body))
 			req.Header.Set("Content-Type", test.contentType)
@@ -116,14 +108,13 @@ func TestCreateHandler(t *testing.T) {
 
 			w := httptest.NewRecorder()
 
-			mockAuditPublisher := audit.NewMockPublisher()
-			h := New(cfg, mockService, mockHealthService, logger, mockAuditPublisher)
+			h := New(cfg, mockUseCase, logger)
 			h.CreateHandler(w, req)
 
 			assert.Equal(t, test.expectedStatus, w.Code)
 			assert.Equal(t, test.expectedBody, w.Body.String())
 
-			mockService.AssertExpectations(t)
+			mockUseCase.AssertExpectations(t)
 		})
 	}
 }

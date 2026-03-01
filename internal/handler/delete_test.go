@@ -6,11 +6,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/MarkelovSergey/url-shorter/internal/audit"
 	"github.com/MarkelovSergey/url-shorter/internal/config"
 	"github.com/MarkelovSergey/url-shorter/internal/middleware"
-	"github.com/MarkelovSergey/url-shorter/internal/service/healthservice"
-	"github.com/MarkelovSergey/url-shorter/internal/service/urlshorterservice"
+	"github.com/MarkelovSergey/url-shorter/internal/usecase/urlcase"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"go.uber.org/zap"
@@ -39,7 +37,7 @@ func TestDeleteURLsHandler(t *testing.T) {
 		contentType    string
 		body           string
 		userID         string
-		mockSetup      func(*urlshorterservice.MockURLShorterService)
+		mockSetup      func(*urlcase.MockURLUseCase)
 		expectedStatus int
 	}{
 		{
@@ -48,7 +46,7 @@ func TestDeleteURLsHandler(t *testing.T) {
 			contentType: "application/json",
 			body:        `["6qxTVvsy", "RTfd56hn", "Jlfd67ds"]`,
 			userID:      userID,
-			mockSetup: func(m *urlshorterservice.MockURLShorterService) {
+			mockSetup: func(m *urlcase.MockURLUseCase) {
 				m.EXPECT().DeleteURLsAsync(mock.Anything, userID).Return().Maybe()
 			},
 			expectedStatus: http.StatusAccepted,
@@ -59,7 +57,7 @@ func TestDeleteURLsHandler(t *testing.T) {
 			contentType:    "application/json",
 			body:           `["6qxTVvsy"]`,
 			userID:         "",
-			mockSetup:      func(m *urlshorterservice.MockURLShorterService) {},
+			mockSetup:      func(m *urlcase.MockURLUseCase) {},
 			expectedStatus: http.StatusUnauthorized,
 		},
 		{
@@ -68,7 +66,7 @@ func TestDeleteURLsHandler(t *testing.T) {
 			contentType:    "application/json",
 			body:           `{"invalid": "json"}`,
 			userID:         userID,
-			mockSetup:      func(m *urlshorterservice.MockURLShorterService) {},
+			mockSetup:      func(m *urlcase.MockURLUseCase) {},
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
@@ -77,7 +75,7 @@ func TestDeleteURLsHandler(t *testing.T) {
 			contentType:    "application/json",
 			body:           `[]`,
 			userID:         userID,
-			mockSetup:      func(m *urlshorterservice.MockURLShorterService) {},
+			mockSetup:      func(m *urlcase.MockURLUseCase) {},
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
@@ -86,7 +84,7 @@ func TestDeleteURLsHandler(t *testing.T) {
 			contentType:    "application/json",
 			body:           `[not valid json]`,
 			userID:         userID,
-			mockSetup:      func(m *urlshorterservice.MockURLShorterService) {},
+			mockSetup:      func(m *urlcase.MockURLUseCase) {},
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
@@ -95,7 +93,7 @@ func TestDeleteURLsHandler(t *testing.T) {
 			contentType: "application/json",
 			body:        `["6qxTVvsy"]`,
 			userID:      userID,
-			mockSetup: func(m *urlshorterservice.MockURLShorterService) {
+			mockSetup: func(m *urlcase.MockURLUseCase) {
 				m.EXPECT().DeleteURLsAsync(mock.Anything, userID).Return().Maybe()
 			},
 			expectedStatus: http.StatusAccepted,
@@ -106,7 +104,7 @@ func TestDeleteURLsHandler(t *testing.T) {
 			contentType: "application/json",
 			body:        `["url1", "url2", "url3", "url4", "url5"]`,
 			userID:      userID,
-			mockSetup: func(m *urlshorterservice.MockURLShorterService) {
+			mockSetup: func(m *urlcase.MockURLUseCase) {
 				m.EXPECT().DeleteURLsAsync(mock.Anything, userID).Return().Maybe()
 			},
 			expectedStatus: http.StatusAccepted,
@@ -115,10 +113,9 @@ func TestDeleteURLsHandler(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			mockService := new(urlshorterservice.MockURLShorterService)
-			mockHealthService := new(healthservice.MockHealthService)
+			mockUseCase := new(urlcase.MockURLUseCase)
 
-			test.mockSetup(mockService)
+			test.mockSetup(mockUseCase)
 
 			req := httptest.NewRequest(test.method, "/api/user/urls", bytes.NewBufferString(test.body))
 			req.Header.Set("Content-Type", test.contentType)
@@ -130,8 +127,7 @@ func TestDeleteURLsHandler(t *testing.T) {
 
 			w := httptest.NewRecorder()
 
-			mockAuditPublisher := audit.NewMockPublisher()
-			h := New(cfg, mockService, mockHealthService, logger, mockAuditPublisher)
+			h := New(cfg, mockUseCase, logger)
 			h.DeleteURLsHandler(w, req)
 
 			assert.Equal(t, test.expectedStatus, w.Code)

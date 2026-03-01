@@ -4,11 +4,10 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"net/url"
-	"strings"
 
 	"github.com/MarkelovSergey/url-shorter/internal/middleware"
 	"github.com/MarkelovSergey/url-shorter/internal/model"
+	"github.com/MarkelovSergey/url-shorter/internal/usecase/urlcase"
 	"go.uber.org/zap"
 )
 
@@ -46,8 +45,7 @@ func (h *handler) CreateBatchHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	urls := make([]string, 0, len(requests))
-	correlationIDs := make([]string, 0, len(requests))
+	items := make([]urlcase.BatchItem, 0, len(requests))
 	for _, req := range requests {
 		if req.CorrelationID == "" {
 			w.WriteHeader(http.StatusBadRequest)
@@ -56,17 +54,17 @@ func (h *handler) CreateBatchHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		uParsed, err := url.Parse(req.OriginalURL)
-		if err != nil || uParsed == nil ||
-			(!strings.HasPrefix(req.OriginalURL, "http://") && !strings.HasPrefix(req.OriginalURL, "https://")) {
+		if !urlcase.IsValidURL(req.OriginalURL) {
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte("url not correct"))
 
 			return
 		}
 
-		urls = append(urls, req.OriginalURL)
-		correlationIDs = append(correlationIDs, req.CorrelationID)
+		items = append(items, urlcase.BatchItem{
+			OriginalURL:   req.OriginalURL,
+			CorrelationID: req.CorrelationID,
+		})
 	}
 
 	userID, ok := middleware.GetUserID(r.Context())
@@ -76,7 +74,7 @@ func (h *handler) CreateBatchHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	shortCodes, err := h.urlShorterService.GenerateBatch(r.Context(), urls, userID)
+	results, err := h.urlUseCase.ShortenBatch(r.Context(), items, userID)
 	if err != nil {
 		h.logger.Error("failed to generate batch short codes",
 			zap.Error(err),
@@ -90,25 +88,11 @@ func (h *handler) CreateBatchHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	responses := make([]model.BatchResponse, 0, len(shortCodes))
-	for i, shortCode := range shortCodes {
-		shortURL, err := url.JoinPath(h.config.Server.BaseURL, shortCode)
-		if err != nil {
-			h.logger.Error("failed to join URL path",
-				zap.Error(err),
-				zap.String("method", r.Method),
-				zap.String("path", r.URL.Path),
-			)
-
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("invalid URL format"))
-
-			return
-		}
-
+	responses := make([]model.BatchResponse, 0, len(results))
+	for _, res := range results {
 		responses = append(responses, model.BatchResponse{
-			CorrelationID: correlationIDs[i],
-			ShortURL:      shortURL,
+			CorrelationID: res.CorrelationID,
+			ShortURL:      res.ShortURL,
 		})
 	}
 

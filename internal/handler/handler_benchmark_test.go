@@ -14,6 +14,7 @@ import (
 	"github.com/MarkelovSergey/url-shorter/internal/repository/urlshorterrepository"
 	"github.com/MarkelovSergey/url-shorter/internal/service/urlshorterservice"
 	"github.com/MarkelovSergey/url-shorter/internal/storage/memorystorage"
+	"github.com/MarkelovSergey/url-shorter/internal/usecase/urlcase"
 	"go.uber.org/zap"
 )
 
@@ -25,7 +26,7 @@ func setupBenchmarkHandler() *handler {
 	logger := zap.NewNop()
 	storage := memorystorage.New()
 	repo := urlshorterrepository.New(storage)
-	service := urlshorterservice.New(repo, nil, logger)
+	svc := urlshorterservice.New(repo, nil, logger)
 	cfg := config.Config{
 		Server: config.ServerConfig{
 			BaseURL: "http://localhost:8080",
@@ -33,9 +34,9 @@ func setupBenchmarkHandler() *handler {
 	}
 
 	auditPublisher := audit.NewPublisher(logger)
+	urlUseCase := urlcase.New(cfg.Server.BaseURL, svc, nil, auditPublisher)
 
-	h := New(cfg, service, nil, logger, auditPublisher)
-	return h
+	return New(cfg, urlUseCase, logger)
 }
 
 func BenchmarkCreateHandler(b *testing.B) {
@@ -96,7 +97,8 @@ func BenchmarkReadHandler(b *testing.B) {
 		},
 	}
 	auditPublisher := audit.NewPublisher(logger)
-	h := New(cfg, service, nil, logger, auditPublisher)
+	urlUseCase := urlcase.New(cfg.Server.BaseURL, service, nil, auditPublisher)
+	h := New(cfg, urlUseCase, logger)
 
 	b.ResetTimer()
 	b.ReportAllocs()

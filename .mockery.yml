@@ -12,9 +12,6 @@ require-template-schema-exists: true
 template: testify
 template-schema: "{{.Template}}.schema.json"
 packages:
-  github.com/MarkelovSergey/url-shorter/internal/service/urlshorterservice:
-    config:
-      all: true
-  github.com/MarkelovSergey/url-shorter/internal/service/healthservice:
+  github.com/MarkelovSergey/url-shorter/internal/usecase/urlcase:
     config:
       all: true

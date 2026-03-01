@@ -4,15 +4,11 @@ package grpcserver
 import (
 	"context"
 	"errors"
-	"net/url"
-	"strings"
 
-	"github.com/MarkelovSergey/url-shorter/internal/audit"
-	"github.com/MarkelovSergey/url-shorter/internal/config"
 	"github.com/MarkelovSergey/url-shorter/internal/middleware"
 	"github.com/MarkelovSergey/url-shorter/internal/model"
 	"github.com/MarkelovSergey/url-shorter/internal/service"
-	"github.com/MarkelovSergey/url-shorter/internal/service/urlshorterservice"
+	"github.com/MarkelovSergey/url-shorter/internal/usecase/urlcase"
 	pb "github.com/MarkelovSergey/url-shorter/proto"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
@@ -21,7 +17,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -31,24 +27,18 @@ const (
 // ShortenerServer реализует gRPC-сервис ShortenerService.
 type ShortenerServer struct {
 	pb.UnimplementedShortenerServiceServer
-	config            config.Config
-	urlShorterService urlshorterservice.URLShorterService
-	logger            *zap.Logger
-	auditPublisher    audit.Publisher
+	urlUseCase urlcase.URLUseCase
+	logger     *zap.Logger
 }
 
 // New создает новый экземпляр gRPC-сервера.
 func New(
-	cfg config.Config,
-	urlShorterService urlshorterservice.URLShorterService,
+	urlUseCase urlcase.URLUseCase,
 	logger *zap.Logger,
-	auditPublisher audit.Publisher,
 ) *ShortenerServer {
 	return &ShortenerServer{
-		config:            cfg,
-		urlShorterService: urlShorterService,
-		logger:            logger,
-		auditPublisher:    auditPublisher,
+		urlUseCase: urlUseCase,
+		logger:     logger,
 	}
 }
 
@@ -59,33 +49,21 @@ func (s *ShortenerServer) ShortenURL(ctx context.Context, req *pb.URLShortenRequ
 		return nil, err
 	}
 
-	ctx = middleware.SetUserID(ctx, userID)
-
 	reqURL := req.GetUrl()
-	uParsed, parseErr := url.Parse(reqURL)
-	if parseErr != nil || uParsed == nil ||
-		(!strings.HasPrefix(reqURL, "http://") && !strings.HasPrefix(reqURL, "https://")) {
+	if !urlcase.IsValidURL(reqURL) {
 		return nil, status.Error(codes.InvalidArgument, "url not correct")
 	}
 
-	shortCode, genErr := s.urlShorterService.Generate(ctx, reqURL, userID)
-
-	shortURL, joinErr := url.JoinPath(s.config.Server.BaseURL, shortCode)
-	if joinErr != nil {
-		return nil, status.Error(codes.Internal, "invalid URL format")
+	result, err := s.urlUseCase.Shorten(ctx, reqURL, userID)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	if genErr != nil {
-		if errors.Is(genErr, service.ErrURLConflict) {
-			s.auditPublisher.Publish(audit.NewEvent(audit.ActionShorten, reqURL, &userID))
-			return &pb.URLShortenResponse{Result: shortURL}, status.Error(codes.AlreadyExists, "URL already shortened")
-		}
-		return nil, status.Error(codes.Internal, genErr.Error())
+	if result.IsConflict {
+		return pb.URLShortenResponse_builder{Result: proto.String(result.ShortURL)}.Build(), status.Error(codes.AlreadyExists, "URL already shortened")
 	}
 
-	s.auditPublisher.Publish(audit.NewEvent(audit.ActionShorten, reqURL, &userID))
-
-	return &pb.URLShortenResponse{Result: shortURL}, nil
+	return pb.URLShortenResponse_builder{Result: proto.String(result.ShortURL)}.Build(), nil
 }
 
 // ExpandURL обрабатывает запрос на получение оригинального URL по короткому коду.
@@ -95,7 +73,7 @@ func (s *ShortenerServer) ExpandURL(ctx context.Context, req *pb.URLExpandReques
 		return nil, status.Error(codes.InvalidArgument, "id is required")
 	}
 
-	originalURL, err := s.urlShorterService.GetOriginalURL(ctx, id)
+	originalURL, err := s.urlUseCase.Expand(ctx, id)
 	if err != nil {
 		if errors.Is(err, service.ErrURLDeleted) {
 			return nil, status.Error(codes.NotFound, "URL has been deleted")
@@ -103,38 +81,31 @@ func (s *ShortenerServer) ExpandURL(ctx context.Context, req *pb.URLExpandReques
 		return nil, status.Error(codes.NotFound, "ID not found")
 	}
 
-	s.auditPublisher.Publish(audit.NewEvent(audit.ActionFollow, originalURL, nil))
-
-	return &pb.URLExpandResponse{Result: originalURL}, nil
+	return pb.URLExpandResponse_builder{Result: proto.String(originalURL)}.Build(), nil
 }
 
 // ListUserURLs обрабатывает запрос на получение списка URL пользователя.
-func (s *ShortenerServer) ListUserURLs(ctx context.Context, _ *emptypb.Empty) (*pb.UserURLsResponse, error) {
+func (s *ShortenerServer) ListUserURLs(ctx context.Context, _ *pb.ListUserURLsRequest) (*pb.UserURLsResponse, error) {
 	userID, err := s.getUserID(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	records, getErr := s.urlShorterService.GetUserURLs(ctx, userID)
+	pairs, getErr := s.urlUseCase.GetUserURLs(ctx, userID)
 	if getErr != nil {
 		s.logger.Error("Failed to get user URLs", zap.Error(getErr))
 		return nil, status.Error(codes.Internal, "failed to get user URLs")
 	}
 
-	urls := make([]*pb.URLData, 0, len(records))
-	for _, record := range records {
-		shortURL, joinErr := url.JoinPath(s.config.Server.BaseURL, record.ShortURL)
-		if joinErr != nil {
-			s.logger.Error("Failed to join URL", zap.Error(joinErr))
-			continue
-		}
-		urls = append(urls, &pb.URLData{
-			ShortUrl:    shortURL,
-			OriginalUrl: record.OriginalURL,
-		})
+	urls := make([]*pb.URLData, 0, len(pairs))
+	for _, pair := range pairs {
+		urls = append(urls, pb.URLData_builder{
+			ShortUrl:    proto.String(pair.ShortURL),
+			OriginalUrl: proto.String(pair.OriginalURL),
+		}.Build())
 	}
 
-	return &pb.UserURLsResponse{Url: urls}, nil
+	return pb.UserURLsResponse_builder{Url: urls}.Build(), nil
 }
 
 // AuthInterceptor возвращает gRPC UnaryServerInterceptor для аутентификации.

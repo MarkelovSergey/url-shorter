@@ -7,12 +7,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/MarkelovSergey/url-shorter/internal/audit"
 	"github.com/MarkelovSergey/url-shorter/internal/config"
 	"github.com/MarkelovSergey/url-shorter/internal/middleware"
 	"github.com/MarkelovSergey/url-shorter/internal/model"
-	"github.com/MarkelovSergey/url-shorter/internal/service/healthservice"
-	"github.com/MarkelovSergey/url-shorter/internal/service/urlshorterservice"
+	"github.com/MarkelovSergey/url-shorter/internal/usecase/urlcase"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"go.uber.org/zap"
@@ -30,7 +28,7 @@ func TestCreateBatchHandler(t *testing.T) {
 		name               string
 		requestBody        interface{}
 		contentType        string
-		mockSetup          func(*urlshorterservice.MockURLShorterService)
+		mockSetup          func(*urlcase.MockURLUseCase)
 		expectedStatusCode int
 		validateResponse   func(*testing.T, []model.BatchResponse)
 	}{
@@ -41,9 +39,16 @@ func TestCreateBatchHandler(t *testing.T) {
 				{CorrelationID: "2", OriginalURL: "https://google.com"},
 			},
 			contentType: "application/json",
-			mockSetup: func(m *urlshorterservice.MockURLShorterService) {
-				m.EXPECT().GenerateBatch(mock.Anything, []string{"https://example.com", "https://google.com"}, mock.Anything).
-					Return([]string{"abc12345", "def67890"}, nil)
+			mockSetup: func(m *urlcase.MockURLUseCase) {
+				items := []urlcase.BatchItem{
+					{OriginalURL: "https://example.com", CorrelationID: "1"},
+					{OriginalURL: "https://google.com", CorrelationID: "2"},
+				}
+				m.EXPECT().ShortenBatch(mock.Anything, items, mock.Anything).
+					Return([]urlcase.BatchResult{
+						{ShortURL: "http://localhost:8080/abc12345", CorrelationID: "1"},
+						{ShortURL: "http://localhost:8080/def67890", CorrelationID: "2"},
+					}, nil)
 			},
 			expectedStatusCode: http.StatusCreated,
 			validateResponse: func(t *testing.T, resp []model.BatchResponse) {
@@ -58,7 +63,7 @@ func TestCreateBatchHandler(t *testing.T) {
 			name:               "Empty batch",
 			requestBody:        []model.BatchRequest{},
 			contentType:        "application/json",
-			mockSetup:          func(m *urlshorterservice.MockURLShorterService) {},
+			mockSetup:          func(m *urlcase.MockURLUseCase) {},
 			expectedStatusCode: http.StatusBadRequest,
 		},
 		{
@@ -67,7 +72,7 @@ func TestCreateBatchHandler(t *testing.T) {
 				{CorrelationID: "", OriginalURL: "https://example.com"},
 			},
 			contentType:        "application/json",
-			mockSetup:          func(m *urlshorterservice.MockURLShorterService) {},
+			mockSetup:          func(m *urlcase.MockURLUseCase) {},
 			expectedStatusCode: http.StatusBadRequest,
 		},
 		{
@@ -76,34 +81,32 @@ func TestCreateBatchHandler(t *testing.T) {
 				{CorrelationID: "1", OriginalURL: "not-a-url"},
 			},
 			contentType:        "application/json",
-			mockSetup:          func(m *urlshorterservice.MockURLShorterService) {},
+			mockSetup:          func(m *urlcase.MockURLUseCase) {},
 			expectedStatusCode: http.StatusBadRequest,
 		},
 		{
 			name:               "Wrong content type",
 			requestBody:        `{"correlation_id":"1","original_url":"https://example.com"}`,
 			contentType:        "text/plain",
-			mockSetup:          func(m *urlshorterservice.MockURLShorterService) {},
+			mockSetup:          func(m *urlcase.MockURLUseCase) {},
 			expectedStatusCode: http.StatusBadRequest,
 		},
 		{
 			name:               "Invalid JSON",
 			requestBody:        `{invalid json}`,
 			contentType:        "application/json",
-			mockSetup:          func(m *urlshorterservice.MockURLShorterService) {},
+			mockSetup:          func(m *urlcase.MockURLUseCase) {},
 			expectedStatusCode: http.StatusBadRequest,
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			mockURLShorterService := new(urlshorterservice.MockURLShorterService)
-			mockHealthService := new(healthservice.MockHealthService)
+			mockUseCase := new(urlcase.MockURLUseCase)
 
-			test.mockSetup(mockURLShorterService)
+			test.mockSetup(mockUseCase)
 
-			mockAuditPublisher := audit.NewMockPublisher()
-			h := New(cfg, mockURLShorterService, mockHealthService, logger, mockAuditPublisher)
+			h := New(cfg, mockUseCase, logger)
 
 			var body []byte
 			var err error
@@ -117,12 +120,10 @@ func TestCreateBatchHandler(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "/api/shorten/batch", bytes.NewReader(body))
 			req.Header.Set("Content-Type", test.contentType)
 
-			// Add userID to context
 			ctx := middleware.SetUserID(req.Context(), "test-user-123")
 			req = req.WithContext(ctx)
 
 			w := httptest.NewRecorder()
-
 			h.CreateBatchHandler(w, req)
 
 			assert.Equal(t, test.expectedStatusCode, w.Code)
@@ -134,7 +135,7 @@ func TestCreateBatchHandler(t *testing.T) {
 				test.validateResponse(t, resp)
 			}
 
-			mockURLShorterService.AssertExpectations(t)
+			mockUseCase.AssertExpectations(t)
 		})
 	}
 }
@@ -147,13 +148,12 @@ func TestCreateBatchHandlerServiceError(t *testing.T) {
 		},
 	}
 
-	mockURLShorterService := new(urlshorterservice.MockURLShorterService)
-	mockHealthService := new(healthservice.MockHealthService)
+	mockUseCase := new(urlcase.MockURLUseCase)
 
-	mockURLShorterService.EXPECT().GenerateBatch(mock.Anything, mock.Anything, mock.Anything).Return([]string{}, assert.AnError)
+	mockUseCase.EXPECT().ShortenBatch(mock.Anything, mock.Anything, mock.Anything).
+		Return(nil, assert.AnError)
 
-	mockAuditPublisher := audit.NewMockPublisher()
-	h := New(cfg, mockURLShorterService, mockHealthService, logger, mockAuditPublisher)
+	h := New(cfg, mockUseCase, logger)
 
 	requestBody := []model.BatchRequest{
 		{CorrelationID: "1", OriginalURL: "https://example.com"},
@@ -167,7 +167,6 @@ func TestCreateBatchHandlerServiceError(t *testing.T) {
 	req = req.WithContext(ctx)
 
 	w := httptest.NewRecorder()
-
 	h.CreateBatchHandler(w, req)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
