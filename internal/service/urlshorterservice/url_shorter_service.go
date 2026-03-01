@@ -42,6 +42,7 @@ type URLShorterService interface {
 	GenerateBatch(ctx context.Context, urls []string, userID string) ([]string, error)
 	GetUserURLs(ctx context.Context, userID string) ([]model.URLRecord, error)
 	DeleteURLsAsync(shortURLs []string, userID string)
+	GetStats(ctx context.Context) (urls int, users int, err error)
 }
 
 type urlShorterService struct {
@@ -156,6 +157,11 @@ func (s *urlShorterService) GetUserURLs(ctx context.Context, userID string) ([]m
 // URL не удаляются физически, а помечаются как удаленные.
 func (s *urlShorterService) DeleteURLsAsync(shortURLs []string, userID string) {
 	go s.deleteURLsAsyncWorker(shortURLs, userID)
+}
+
+// GetStats возвращает количество URL и пользователей в сервисе.
+func (s *urlShorterService) GetStats(ctx context.Context) (int, int, error) {
+	return s.urlShorterRepo.GetStats(ctx)
 }
 
 func (s *urlShorterService) deleteURLsAsyncWorker(shortURLs []string, userID string) {

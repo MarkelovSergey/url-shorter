@@ -7,10 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/MarkelovSergey/url-shorter/internal/audit"
 	"github.com/MarkelovSergey/url-shorter/internal/config"
-	"github.com/MarkelovSergey/url-shorter/internal/service/healthservice"
-	"github.com/MarkelovSergey/url-shorter/internal/service/urlshorterservice"
+	"github.com/MarkelovSergey/url-shorter/internal/usecase/urlcase"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 )
@@ -25,20 +23,22 @@ func TestPingHandler(t *testing.T) {
 		"postgres://postgres:password@host.docker.internal:5432/postgres",
 		"",
 		"",
+		"",
+		"",
 		false,
 	)
 
 	tests := []struct {
 		name           string
 		method         string
-		mockSetup      func(*healthservice.MockHealthService)
+		mockSetup      func(*urlcase.MockURLUseCase)
 		expectedStatus int
 		expectedBody   string
 	}{
 		{
 			name:   "successful health check",
 			method: http.MethodGet,
-			mockSetup: func(m *healthservice.MockHealthService) {
+			mockSetup: func(m *urlcase.MockURLUseCase) {
 				m.EXPECT().Ping(context.Background()).Return(nil)
 			},
 			expectedStatus: http.StatusOK,
@@ -47,7 +47,7 @@ func TestPingHandler(t *testing.T) {
 		{
 			name:   "failed health check",
 			method: http.MethodGet,
-			mockSetup: func(m *healthservice.MockHealthService) {
+			mockSetup: func(m *urlcase.MockURLUseCase) {
 				m.EXPECT().Ping(context.Background()).Return(errors.New("database connection failed"))
 			},
 			expectedStatus: http.StatusInternalServerError,
@@ -57,22 +57,20 @@ func TestPingHandler(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			mockHealthService := new(healthservice.MockHealthService)
-			mockURLShorterService := new(urlshorterservice.MockURLShorterService)
+			mockUseCase := new(urlcase.MockURLUseCase)
 
-			test.mockSetup(mockHealthService)
+			test.mockSetup(mockUseCase)
 
 			req := httptest.NewRequest(test.method, cfg.Server.Address+"/ping", nil)
 			w := httptest.NewRecorder()
 
-			mockAuditPublisher := audit.NewMockPublisher()
-			h := New(cfg, mockURLShorterService, mockHealthService, logger, mockAuditPublisher)
+			h := New(cfg, mockUseCase, logger)
 			h.PingHandler(w, req)
 
 			assert.Equal(t, test.expectedStatus, w.Code)
 			assert.Equal(t, test.expectedBody, w.Body.String())
 
-			mockHealthService.AssertExpectations(t)
+			mockUseCase.AssertExpectations(t)
 		})
 	}
 }

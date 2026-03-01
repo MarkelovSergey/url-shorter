@@ -19,6 +19,7 @@ import (
 
 	"github.com/MarkelovSergey/url-shorter/internal/audit"
 	"github.com/MarkelovSergey/url-shorter/internal/config"
+	"github.com/MarkelovSergey/url-shorter/internal/grpcserver"
 	"github.com/MarkelovSergey/url-shorter/internal/handler"
 	"github.com/MarkelovSergey/url-shorter/internal/middleware"
 	"github.com/MarkelovSergey/url-shorter/internal/migration"
@@ -30,9 +31,12 @@ import (
 	"github.com/MarkelovSergey/url-shorter/internal/storage/filestorage"
 	"github.com/MarkelovSergey/url-shorter/internal/storage/memorystorage"
 	"github.com/MarkelovSergey/url-shorter/internal/storage/postgresstorage"
+	"github.com/MarkelovSergey/url-shorter/internal/usecase/urlcase"
+	pb "github.com/MarkelovSergey/url-shorter/proto"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 )
 
 // App представляет основное приложение сервиса сокращения URL.
@@ -40,6 +44,7 @@ import (
 // логгер и публикатор событий аудита.
 type App struct {
 	server         *http.Server
+	grpcServer     *grpc.Server
 	dbPool         *pgxpool.Pool
 	logger         *zap.Logger
 	auditPublisher *audit.AuditPublisher
@@ -110,7 +115,10 @@ func New(cfg config.Config) *App {
 		log.Printf("Audit HTTP observer enabled: %s", cfg.Audit.URL)
 	}
 
-	handler := handler.New(cfg, urlShorterService, healthService, logger, auditPublisher)
+	// Слой use case — общий для HTTP и gRPC транспортов
+	urlUseCase := urlcase.New(cfg.Server.BaseURL, urlShorterService, healthService, auditPublisher)
+
+	handler := handler.New(cfg, urlUseCase, logger)
 	r := chi.NewRouter()
 	r.Use(middleware.Logging(logger))
 	r.Use(middleware.Gzipping)
@@ -124,13 +132,27 @@ func New(cfg config.Config) *App {
 	r.Delete("/api/user/urls", handler.DeleteURLsHandler)
 	r.Get("/ping", handler.PingHandler)
 
+	r.Route("/api/internal/stats", func(gr chi.Router) {
+		gr.Use(middleware.TrustedSubnet(cfg.Server.TrustedSubnet))
+
+		gr.Get("/", handler.StatsHandler)
+	})
+
 	srv := &http.Server{
 		Addr:    cfg.Server.Address,
 		Handler: r,
 	}
 
+	// Инициализация gRPC-сервера
+	grpcSrv := grpc.NewServer(
+		grpc.UnaryInterceptor(grpcserver.AuthInterceptor()),
+	)
+	grpcHandler := grpcserver.New(urlUseCase, logger)
+	pb.RegisterShortenerServiceServer(grpcSrv, grpcHandler)
+
 	return &App{
 		server:         srv,
+		grpcServer:     grpcSrv,
 		dbPool:         pool,
 		logger:         logger,
 		auditPublisher: auditPublisher,
@@ -149,21 +171,49 @@ func (a *App) Run() error {
 		return ctx
 	}
 
+	errCh := make(chan error, 2)
+
 	go func() {
 		if a.config.Server.EnableHTTPS {
 			log.Printf("HTTPS server is starting on %s", a.server.Addr)
 			if err := a.startTLSServer(); err != nil && err != http.ErrServerClosed {
 				log.Printf("HTTPS server failed to start: %v", err)
+				errCh <- err
+				return
 			}
-		} else {
-			log.Printf("Server is starting on %s", a.server.Addr)
-			if err := a.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-				log.Printf("Server failed to start: %v", err)
-			}
+		}
+
+		log.Printf("Server is starting on %s", a.server.Addr)
+		if err := a.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Printf("Server failed to start: %v", err)
+			errCh <- err
 		}
 	}()
 
-	<-ctx.Done()
+	// Запуск gRPC-сервера
+	if a.config.Server.GRPCAddress != "" {
+		go func() {
+			lis, err := net.Listen("tcp", a.config.Server.GRPCAddress)
+			if err != nil {
+				log.Printf("Failed to listen for gRPC: %v", err)
+				errCh <- err
+				return
+			}
+
+			log.Printf("gRPC server is starting on %s", a.config.Server.GRPCAddress)
+			if err := a.grpcServer.Serve(lis); err != nil {
+				log.Printf("gRPC server failed: %v", err)
+				errCh <- err
+			}
+		}()
+	}
+
+	var runErr error
+	select {
+	case <-ctx.Done():
+	case runErr = <-errCh:
+		stop()
+	}
 
 	log.Println("Shutting down server...")
 
@@ -172,6 +222,10 @@ func (a *App) Run() error {
 
 	if err := a.server.Shutdown(shutdownCtx); err != nil {
 		return fmt.Errorf("server shutdown failed: %w", err)
+	}
+
+	if a.grpcServer != nil {
+		a.grpcServer.GracefulStop()
 	}
 
 	if a.dbPool != nil {
@@ -186,7 +240,7 @@ func (a *App) Run() error {
 
 	log.Println("Server exited gracefully")
 
-	return nil
+	return runErr
 }
 
 // startTLSServer запускает HTTPS-сервер с самоподписанным сертификатом.

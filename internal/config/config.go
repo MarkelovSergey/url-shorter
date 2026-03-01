@@ -16,6 +16,8 @@ const (
 	auditURLEnv        = "AUDIT_URL"
 	enableHTTPSEnv     = "ENABLE_HTTPS"
 	configFileEnv      = "CONFIG"
+	trustedSubnetEnv   = "TRUSTED_SUBNET"
+	grpcAddressEnv     = "GRPC_ADDRESS"
 )
 
 // JSONConfig представляет структуру JSON файла конфигурации.
@@ -34,6 +36,10 @@ type JSONConfig struct {
 	AuditFile string `json:"audit_file,omitempty"`
 	// AuditURL - URL удаленного сервера для отправки событий аудита (аналог -audit-url или AUDIT_URL)
 	AuditURL string `json:"audit_url,omitempty"`
+	// TrustedSubnet - доверенная подсеть в нотации CIDR (аналог -t или TRUSTED_SUBNET)
+	TrustedSubnet string `json:"trusted_subnet,omitempty"`
+	// GRPCAddress - адрес gRPC-сервера (аналог -g или GRPC_ADDRESS)
+	GRPCAddress string `json:"grpc_address,omitempty"`
 }
 
 // ServerConfig содержит настройки HTTP-сервера.
@@ -44,6 +50,10 @@ type ServerConfig struct {
 	BaseURL string
 	// EnableHTTPS - включает HTTPS-сервер вместо HTTP
 	EnableHTTPS bool
+	// TrustedSubnet - доверенная подсеть в нотации CIDR для доступа к /api/internal/stats
+	TrustedSubnet string
+	// GRPCAddress - адрес gRPC-сервера (например, ":3200")
+	GRPCAddress string
 }
 
 // StorageConfig содержит настройки хранилища данных.
@@ -79,12 +89,24 @@ type Config struct {
 }
 
 // New создает новый экземпляр конфигурации с заданными параметрами.
-func New(serverAddr, baseURL, fileStoragePath, databaseDSN, auditFile, auditURL string, enableHTTPS bool) Config {
+func New(
+	serverAddr string,
+	baseURL string,
+	fileStoragePath string,
+	databaseDSN string,
+	auditFile string,
+	auditURL string,
+	trustedSubnet string,
+	grpcAddress string,
+	enableHTTPS bool,
+) Config {
 	return Config{
 		Server: ServerConfig{
-			Address:     serverAddr,
-			BaseURL:     baseURL,
-			EnableHTTPS: enableHTTPS,
+			Address:       serverAddr,
+			BaseURL:       baseURL,
+			EnableHTTPS:   enableHTTPS,
+			TrustedSubnet: trustedSubnet,
+			GRPCAddress:   grpcAddress,
 		},
 		Storage: StorageConfig{
 			FilePath: fileStoragePath,
@@ -129,6 +151,8 @@ type flagValues struct {
 	databaseDSN     string
 	auditFile       string
 	auditURL        string
+	trustedSubnet   string
+	grpcAddress     string
 	enableHTTPS     bool
 	configFile      string
 }
@@ -142,6 +166,8 @@ func defineFlags() *flagValues {
 	databaseDSN := flag.String("d", "", "database connection string")
 	fileStoragePath := flag.String("f", "/var/lib/url-shorter/short-url-db.json", "file storage path")
 	enableHTTPS := flag.Bool("s", false, "enable HTTPS server")
+	trustedSubnet := flag.String("t", "", "trusted subnet in CIDR notation for /api/internal/stats")
+	grpcAddress := flag.String("g", ":3200", "gRPC server address")
 	auditFile := flag.String("audit-file", "", "path to audit log file")
 	auditURL := flag.String("audit-url", "", "URL of remote audit server")
 	flag.StringVar(configFile, "config", "", "path to JSON config file")
@@ -154,6 +180,8 @@ func defineFlags() *flagValues {
 		databaseDSN:     *databaseDSN,
 		auditFile:       *auditFile,
 		auditURL:        *auditURL,
+		trustedSubnet:   *trustedSubnet,
+		grpcAddress:     *grpcAddress,
 		enableHTTPS:     *enableHTTPS,
 		configFile:      *configFile,
 	}
@@ -196,6 +224,12 @@ func applyJSONConfig(values *flagValues, jsonCfg *JSONConfig) {
 	if jsonCfg.EnableHTTPS != nil {
 		values.enableHTTPS = *jsonCfg.EnableHTTPS
 	}
+	if jsonCfg.TrustedSubnet != "" {
+		values.trustedSubnet = jsonCfg.TrustedSubnet
+	}
+	if jsonCfg.GRPCAddress != "" {
+		values.grpcAddress = jsonCfg.GRPCAddress
+	}
 }
 
 // applyEnvVariables применяет значения из переменных окружения к flagValues.
@@ -227,6 +261,14 @@ func applyEnvVariables(values *flagValues) {
 
 	if envEnableHTTPS, ok := os.LookupEnv(enableHTTPSEnv); ok {
 		values.enableHTTPS = envEnableHTTPS == "true" || envEnableHTTPS == "1"
+	}
+
+	if envTrustedSubnet, ok := os.LookupEnv(trustedSubnetEnv); ok {
+		values.trustedSubnet = envTrustedSubnet
+	}
+
+	if envGRPCAddress, ok := os.LookupEnv(grpcAddressEnv); ok {
+		values.grpcAddress = envGRPCAddress
 	}
 }
 
@@ -273,6 +315,8 @@ func ParseFlags() Config {
 		values.databaseDSN,
 		values.auditFile,
 		values.auditURL,
+		values.trustedSubnet,
+		values.grpcAddress,
 		values.enableHTTPS,
 	)
 }

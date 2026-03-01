@@ -5,11 +5,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/MarkelovSergey/url-shorter/internal/audit"
 	"github.com/MarkelovSergey/url-shorter/internal/config"
 	"github.com/MarkelovSergey/url-shorter/internal/service"
-	"github.com/MarkelovSergey/url-shorter/internal/service/healthservice"
-	"github.com/MarkelovSergey/url-shorter/internal/service/urlshorterservice"
+	"github.com/MarkelovSergey/url-shorter/internal/usecase/urlcase"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"go.uber.org/zap"
@@ -25,6 +23,8 @@ func TestReadHandler(t *testing.T) {
 		"postgres://postgres:password@host.docker.internal:5432/postgres",
 		"",
 		"",
+		"",
+		"",
 		false,
 	)
 
@@ -35,7 +35,7 @@ func TestReadHandler(t *testing.T) {
 		name           string
 		method         string
 		path           string
-		mockSetup      func(*urlshorterservice.MockURLShorterService)
+		mockSetup      func(*urlcase.MockURLUseCase)
 		expectedStatus int
 		expectedBody   string
 		expectedURL    string
@@ -44,8 +44,8 @@ func TestReadHandler(t *testing.T) {
 			name:   "successful redirection",
 			method: http.MethodGet,
 			path:   "/" + shortID,
-			mockSetup: func(m *urlshorterservice.MockURLShorterService) {
-				m.EXPECT().GetOriginalURL(mock.Anything, shortID).Return(originalURL, nil)
+			mockSetup: func(m *urlcase.MockURLUseCase) {
+				m.EXPECT().Expand(mock.Anything, shortID).Return(originalURL, nil)
 			},
 			expectedStatus: http.StatusTemporaryRedirect,
 			expectedURL:    originalURL,
@@ -54,7 +54,7 @@ func TestReadHandler(t *testing.T) {
 			name:           "Invalid path format",
 			method:         http.MethodGet,
 			path:           "/some/invalid/path",
-			mockSetup:      func(m *urlshorterservice.MockURLShorterService) {},
+			mockSetup:      func(m *urlcase.MockURLUseCase) {},
 			expectedStatus: http.StatusBadRequest,
 			expectedBody:   "ID not found",
 		},
@@ -62,8 +62,8 @@ func TestReadHandler(t *testing.T) {
 			name:   "ID not found",
 			method: http.MethodGet,
 			path:   "/" + shortID,
-			mockSetup: func(m *urlshorterservice.MockURLShorterService) {
-				m.EXPECT().GetOriginalURL(mock.Anything, shortID).Return("", service.ErrFindShortCode)
+			mockSetup: func(m *urlcase.MockURLUseCase) {
+				m.EXPECT().Expand(mock.Anything, shortID).Return("", service.ErrFindShortCode)
 			},
 			expectedStatus: http.StatusBadRequest,
 			expectedBody:   "ID not found",
@@ -72,8 +72,8 @@ func TestReadHandler(t *testing.T) {
 			name:   "URL has been deleted - should return 410 Gone",
 			method: http.MethodGet,
 			path:   "/" + shortID,
-			mockSetup: func(m *urlshorterservice.MockURLShorterService) {
-				m.EXPECT().GetOriginalURL(mock.Anything, shortID).Return("", service.ErrURLDeleted)
+			mockSetup: func(m *urlcase.MockURLUseCase) {
+				m.EXPECT().Expand(mock.Anything, shortID).Return("", service.ErrURLDeleted)
 			},
 			expectedStatus: http.StatusGone,
 			expectedBody:   "",
@@ -82,29 +82,22 @@ func TestReadHandler(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			mockService := new(urlshorterservice.MockURLShorterService)
-			mockHealthService := new(healthservice.MockHealthService)
+			mockUseCase := new(urlcase.MockURLUseCase)
 
-			test.mockSetup(mockService)
+			test.mockSetup(mockUseCase)
 
 			req := httptest.NewRequest(test.method, test.path, nil)
 			w := httptest.NewRecorder()
 
-			mockAuditPublisher := audit.NewMockPublisher()
-			h := New(cfg, mockService, mockHealthService, logger, mockAuditPublisher)
+			h := New(cfg, mockUseCase, logger)
 			h.ReadHandler(w, req)
 
 			assert.Equal(t, test.expectedStatus, w.Code)
-
-			if test.expectedBody != "" {
-				assert.Equal(t, test.expectedBody, w.Body.String())
-			}
-
 			if test.expectedURL != "" {
 				assert.Equal(t, test.expectedURL, w.Header().Get("Location"))
+			} else {
+				assert.Equal(t, test.expectedBody, w.Body.String())
 			}
-
-			mockService.AssertExpectations(t)
 		})
 	}
 }

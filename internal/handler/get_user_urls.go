@@ -3,7 +3,6 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
-	"net/url"
 
 	"github.com/MarkelovSergey/url-shorter/internal/middleware"
 	"github.com/MarkelovSergey/url-shorter/internal/model"
@@ -18,7 +17,7 @@ func (h *handler) GetUserURLsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	records, err := h.urlShorterService.GetUserURLs(r.Context(), userID)
+	pairs, err := h.urlUseCase.GetUserURLs(r.Context(), userID)
 	if err != nil {
 		h.logger.Error("Failed to get user URLs: " + err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
@@ -26,24 +25,17 @@ func (h *handler) GetUserURLsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(records) == 0 {
+	if len(pairs) == 0 {
 		w.WriteHeader(http.StatusNoContent)
 
 		return
 	}
 
-	response := make([]model.UserURLResponse, 0, len(records))
-	for _, record := range records {
-		shortURL, err := url.JoinPath(h.config.Server.BaseURL, record.ShortURL)
-		if err != nil {
-			h.logger.Error("Failed to join URL: " + err.Error())
-
-			continue
-		}
-
+	response := make([]model.UserURLResponse, 0, len(pairs))
+	for _, pair := range pairs {
 		response = append(response, model.UserURLResponse{
-			ShortURL:    shortURL,
-			OriginalURL: record.OriginalURL,
+			ShortURL:    pair.ShortURL,
+			OriginalURL: pair.OriginalURL,
 		})
 	}
 

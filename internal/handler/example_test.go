@@ -7,24 +7,20 @@ import (
 	"net/http/httptest"
 	"strings"
 
-	"github.com/MarkelovSergey/url-shorter/internal/audit"
 	"github.com/MarkelovSergey/url-shorter/internal/config"
 	"github.com/MarkelovSergey/url-shorter/internal/middleware"
 	"github.com/MarkelovSergey/url-shorter/internal/model"
-	"github.com/MarkelovSergey/url-shorter/internal/service/healthservice"
-	"github.com/MarkelovSergey/url-shorter/internal/service/urlshorterservice"
+	"github.com/MarkelovSergey/url-shorter/internal/usecase/urlcase"
 	"github.com/stretchr/testify/mock"
 	"go.uber.org/zap"
 )
 
 // exampleTestSetup содержит общую конфигурацию для примеров.
 type exampleTestSetup struct {
-	cfg                config.Config
-	logger             *zap.Logger
-	mockURLService     *urlshorterservice.MockURLShorterService
-	mockHealthService  *healthservice.MockHealthService
-	mockAuditPublisher *audit.MockPublisher
-	handler            *handler
+	cfg         config.Config
+	logger      *zap.Logger
+	mockUseCase *urlcase.MockURLUseCase
+	handler     *handler
 }
 
 // exampleMockTestingT реализует интерфейс testing.T для примеров.
@@ -44,24 +40,22 @@ func newExampleTestSetup() *exampleTestSetup {
 		"postgres://postgres:password@localhost:5432/postgres",
 		"",
 		"",
+		"",
+		"",
 		false,
 	)
 	logger := zap.NewNop()
 
 	t := &exampleMockTestingT{}
-	mockURLService := urlshorterservice.NewMockURLShorterService(t)
-	mockHealthService := healthservice.NewMockHealthService(t)
-	mockAuditPublisher := audit.NewMockPublisher()
+	mockUseCase := urlcase.NewMockURLUseCase(t)
 
-	h := New(cfg, mockURLService, mockHealthService, logger, mockAuditPublisher)
+	h := New(cfg, mockUseCase, logger)
 
 	return &exampleTestSetup{
-		cfg:                cfg,
-		logger:             logger,
-		mockURLService:     mockURLService,
-		mockHealthService:  mockHealthService,
-		mockAuditPublisher: mockAuditPublisher,
-		handler:            h,
+		cfg:         cfg,
+		logger:      logger,
+		mockUseCase: mockUseCase,
+		handler:     h,
 	}
 }
 
@@ -73,20 +67,16 @@ func newExampleTestSetup() *exampleTestSetup {
 func Example_createHandler() {
 	setup := newExampleTestSetup()
 
-	// Настраиваем мок для генерации короткой ссылки
-	setup.mockURLService.EXPECT().
-		Generate(mock.Anything, "https://practicum.yandex.ru", mock.Anything).
-		Return("abc123", nil)
+	setup.mockUseCase.EXPECT().
+		Shorten(mock.Anything, "https://practicum.yandex.ru", mock.Anything).
+		Return(urlcase.ShortenResult{ShortURL: "http://localhost:8080/abc123"}, nil)
 
-	// Создаём запрос с URL в теле
 	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("https://practicum.yandex.ru"))
 	req.Header.Set("Content-Type", "text/plain")
 
-	// Добавляем ID пользователя в контекст
 	ctx := middleware.SetUserID(req.Context(), "user-123")
 	req = req.WithContext(ctx)
 
-	// Записываем ответ
 	w := httptest.NewRecorder()
 	setup.handler.CreateHandler(w, req)
 
@@ -106,21 +96,17 @@ func Example_createHandler() {
 func Example_createAPIHandler() {
 	setup := newExampleTestSetup()
 
-	// Настраиваем мок для генерации короткой ссылки
-	setup.mockURLService.EXPECT().
-		Generate(mock.Anything, "https://practicum.yandex.ru", mock.Anything).
-		Return("xyz789", nil)
+	setup.mockUseCase.EXPECT().
+		Shorten(mock.Anything, "https://practicum.yandex.ru", mock.Anything).
+		Return(urlcase.ShortenResult{ShortURL: "http://localhost:8080/xyz789"}, nil)
 
-	// Создаём JSON-запрос
 	requestBody := `{"url": "https://practicum.yandex.ru"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/shorten", strings.NewReader(requestBody))
 	req.Header.Set("Content-Type", "application/json")
 
-	// Добавляем ID пользователя в контекст
 	ctx := middleware.SetUserID(req.Context(), "user-123")
 	req = req.WithContext(ctx)
 
-	// Записываем ответ
 	w := httptest.NewRecorder()
 	setup.handler.CreateAPIHandler(w, req)
 
@@ -138,19 +124,20 @@ func Example_createAPIHandler() {
 }
 
 // Example_createBatchHandler демонстрирует пакетное создание коротких ссылок.
-//
-// POST /api/shorten/batch с Content-Type: application/json
-// Тело запроса: массив объектов с correlation_id и original_url
-// Возвращает массив объектов с correlation_id и short_url.
 func Example_createBatchHandler() {
 	setup := newExampleTestSetup()
 
-	// Настраиваем мок для генерации батча коротких ссылок
-	setup.mockURLService.EXPECT().
-		GenerateBatch(mock.Anything, []string{"https://example.com", "https://google.com"}, mock.Anything).
-		Return([]string{"short1", "short2"}, nil)
+	items := []urlcase.BatchItem{
+		{OriginalURL: "https://example.com", CorrelationID: "id1"},
+		{OriginalURL: "https://google.com", CorrelationID: "id2"},
+	}
+	setup.mockUseCase.EXPECT().
+		ShortenBatch(mock.Anything, items, mock.Anything).
+		Return([]urlcase.BatchResult{
+			{ShortURL: "http://localhost:8080/short1", CorrelationID: "id1"},
+			{ShortURL: "http://localhost:8080/short2", CorrelationID: "id2"},
+		}, nil)
 
-	// Создаём батч-запрос
 	requestBody := `[
 		{"correlation_id": "id1", "original_url": "https://example.com"},
 		{"correlation_id": "id2", "original_url": "https://google.com"}
@@ -158,11 +145,9 @@ func Example_createBatchHandler() {
 	req := httptest.NewRequest(http.MethodPost, "/api/shorten/batch", strings.NewReader(requestBody))
 	req.Header.Set("Content-Type", "application/json")
 
-	// Добавляем ID пользователя в контекст
 	ctx := middleware.SetUserID(req.Context(), "user-123")
 	req = req.WithContext(ctx)
 
-	// Записываем ответ
 	w := httptest.NewRecorder()
 	setup.handler.CreateBatchHandler(w, req)
 
@@ -183,21 +168,15 @@ func Example_createBatchHandler() {
 }
 
 // Example_readHandler демонстрирует перенаправление по короткой ссылке.
-//
-// GET /{shortID}
-// Возвращает редирект 307 Temporary Redirect на оригинальный URL.
 func Example_readHandler() {
 	setup := newExampleTestSetup()
 
-	// Настраиваем мок для получения оригинального URL
-	setup.mockURLService.EXPECT().
-		GetOriginalURL(mock.Anything, "abc123").
+	setup.mockUseCase.EXPECT().
+		Expand(mock.Anything, "abc123").
 		Return("https://practicum.yandex.ru", nil)
 
-	// Создаём GET-запрос к короткой ссылке
 	req := httptest.NewRequest(http.MethodGet, "/abc123", nil)
 
-	// Записываем ответ
 	w := httptest.NewRecorder()
 	setup.handler.ReadHandler(w, req)
 
@@ -210,29 +189,21 @@ func Example_readHandler() {
 }
 
 // Example_getUserURLsHandler демонстрирует получение списка URL пользователя.
-//
-// GET /api/user/urls
-// Возвращает JSON-массив всех URL, созданных пользователем.
 func Example_getUserURLsHandler() {
 	setup := newExampleTestSetup()
 
-	// Настраиваем мок для получения URL пользователя
-	userURLs := []model.URLRecord{
-		{ShortURL: "abc123", OriginalURL: "https://practicum.yandex.ru"},
-		{ShortURL: "xyz789", OriginalURL: "https://google.com"},
-	}
-	setup.mockURLService.EXPECT().
+	setup.mockUseCase.EXPECT().
 		GetUserURLs(mock.Anything, "user-123").
-		Return(userURLs, nil)
+		Return([]urlcase.URLPair{
+			{ShortURL: "http://localhost:8080/abc123", OriginalURL: "https://practicum.yandex.ru"},
+			{ShortURL: "http://localhost:8080/xyz789", OriginalURL: "https://google.com"},
+		}, nil)
 
-	// Создаём запрос
 	req := httptest.NewRequest(http.MethodGet, "/api/user/urls", nil)
 
-	// Добавляем ID пользователя в контекст
 	ctx := middleware.SetUserID(req.Context(), "user-123")
 	req = req.WithContext(ctx)
 
-	// Записываем ответ
 	w := httptest.NewRecorder()
 	setup.handler.GetUserURLsHandler(w, req)
 
@@ -253,28 +224,20 @@ func Example_getUserURLsHandler() {
 }
 
 // Example_deleteURLsHandler демонстрирует удаление URL пользователя.
-//
-// DELETE /api/user/urls
-// Тело запроса: JSON-массив коротких URL для удаления.
-// Возвращает статус 202 Accepted - удаление выполняется асинхронно.
 func Example_deleteURLsHandler() {
 	setup := newExampleTestSetup()
 
-	// Настраиваем мок для асинхронного удаления URL
-	setup.mockURLService.EXPECT().
+	setup.mockUseCase.EXPECT().
 		DeleteURLsAsync([]string{"abc123", "xyz789"}, "user-123").
 		Return()
 
-	// Создаём запрос с массивом коротких URL для удаления
 	requestBody := `["abc123", "xyz789"]`
 	req := httptest.NewRequest(http.MethodDelete, "/api/user/urls", strings.NewReader(requestBody))
 	req.Header.Set("Content-Type", "application/json")
 
-	// Добавляем ID пользователя в контекст
 	ctx := middleware.SetUserID(req.Context(), "user-123")
 	req = req.WithContext(ctx)
 
-	// Записываем ответ
 	w := httptest.NewRecorder()
 	setup.handler.DeleteURLsHandler(w, req)
 
@@ -285,21 +248,15 @@ func Example_deleteURLsHandler() {
 }
 
 // Example_pingHandler демонстрирует проверку доступности базы данных.
-//
-// GET /ping
-// Возвращает статус 200 OK если база данных доступна.
 func Example_pingHandler() {
 	setup := newExampleTestSetup()
 
-	// Настраиваем мок для успешного пинга
-	setup.mockHealthService.EXPECT().
+	setup.mockUseCase.EXPECT().
 		Ping(mock.Anything).
 		Return(nil)
 
-	// Создаём запрос
 	req := httptest.NewRequest(http.MethodGet, "/ping", nil)
 
-	// Записываем ответ
 	w := httptest.NewRecorder()
 	setup.handler.PingHandler(w, req)
 

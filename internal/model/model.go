@@ -1,6 +1,14 @@
 // Package model содержит модели данных приложения.
 package model
 
+import "github.com/golang-jwt/jwt/v5"
+
+// UserClaims содержит данные пользователя для JWT-токена.
+type UserClaims struct {
+	UserID string `json:"user_id"`
+	jwt.RegisteredClaims
+}
+
 // Request представляет запрос на создание короткой ссылки.
 type Request struct {
 	URL string `json:"url"`
@@ -36,4 +44,10 @@ type URLRecord struct {
 type UserURLResponse struct {
 	ShortURL    string `json:"short_url"`
 	OriginalURL string `json:"original_url"`
+}
+
+// StatsResponse содержит статистику сервиса.
+type StatsResponse struct {
+	URLs  int `json:"urls"`
+	Users int `json:"users"`
 }

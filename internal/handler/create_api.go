@@ -2,16 +2,12 @@ package handler
 
 import (
 	"encoding/json"
-	"errors"
 	"io"
 	"net/http"
-	"net/url"
-	"strings"
 
-	"github.com/MarkelovSergey/url-shorter/internal/audit"
 	"github.com/MarkelovSergey/url-shorter/internal/middleware"
 	"github.com/MarkelovSergey/url-shorter/internal/model"
-	"github.com/MarkelovSergey/url-shorter/internal/service"
+	"github.com/MarkelovSergey/url-shorter/internal/usecase/urlcase"
 	"go.uber.org/zap"
 )
 
@@ -42,9 +38,7 @@ func (h *handler) CreateAPIHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	uParsed, err := url.Parse(req.URL)
-	if err != nil || uParsed == nil ||
-		(!strings.HasPrefix(req.URL, "http://") && !strings.HasPrefix(req.URL, "https://")) {
+	if !urlcase.IsValidURL(req.URL) {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("url not correct"))
 
@@ -58,17 +52,15 @@ func (h *handler) CreateAPIHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	us, err := h.urlShorterService.Generate(r.Context(), req.URL, userID)
-
-	shortURL, joinErr := url.JoinPath(h.config.Server.BaseURL, us)
-	if joinErr != nil {
+	result, err := h.urlUseCase.Shorten(r.Context(), req.URL, userID)
+	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("invalid URL format"))
+		w.Write([]byte(err.Error()))
 
 		return
 	}
 
-	resp := model.Response{Result: shortURL}
+	resp := model.Response{Result: result.ShortURL}
 	jsonResp, marshalErr := json.Marshal(resp)
 	if marshalErr != nil {
 		h.logger.Error("failed to marshal JSON response",
@@ -85,24 +77,13 @@ func (h *handler) CreateAPIHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	if err != nil {
-		if errors.Is(err, service.ErrURLConflict) {
-			w.WriteHeader(http.StatusConflict)
-			w.Write(jsonResp)
-
-			h.auditPublisher.Publish(audit.NewEvent(audit.ActionShorten, req.URL, &userID))
-
-			return
-		}
-
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(err.Error()))
+	if result.IsConflict {
+		w.WriteHeader(http.StatusConflict)
+		w.Write(jsonResp)
 
 		return
 	}
 
 	w.WriteHeader(http.StatusCreated)
 	w.Write(jsonResp)
-
-	h.auditPublisher.Publish(audit.NewEvent(audit.ActionShorten, req.URL, &userID))
 }

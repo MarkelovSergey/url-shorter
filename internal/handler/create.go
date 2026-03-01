@@ -2,15 +2,11 @@
 package handler
 
 import (
-	"errors"
 	"io"
 	"net/http"
-	"net/url"
-	"strings"
 
-	"github.com/MarkelovSergey/url-shorter/internal/audit"
 	"github.com/MarkelovSergey/url-shorter/internal/middleware"
-	"github.com/MarkelovSergey/url-shorter/internal/service"
+	"github.com/MarkelovSergey/url-shorter/internal/usecase/urlcase"
 )
 
 // CreateHandler обрабатывает запрос на создание короткой ссылки в формате text/plain.
@@ -33,9 +29,7 @@ func (h *handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 
 	u := string(body)
 
-	uParsed, err := url.Parse(u)
-	if err != nil || uParsed == nil ||
-		(!strings.HasPrefix(u, "http://") && !strings.HasPrefix(u, "https://")) {
+	if !urlcase.IsValidURL(u) {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("url not correct"))
 
@@ -49,34 +43,21 @@ func (h *handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	us, err := h.urlShorterService.Generate(r.Context(), u, userID)
-
-	shortURL, joinErr := url.JoinPath(h.config.Server.BaseURL, us)
-	if joinErr != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("invalid URL format"))
-
-		return
-	}
-
+	result, err := h.urlUseCase.Shorten(r.Context(), u, userID)
 	if err != nil {
-		if errors.Is(err, service.ErrURLConflict) {
-			w.WriteHeader(http.StatusConflict)
-			w.Write([]byte(shortURL))
-
-			h.auditPublisher.Publish(audit.NewEvent(audit.ActionShorten, u, &userID))
-
-			return
-		}
-
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(err.Error()))
 
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte(shortURL))
+	if result.IsConflict {
+		w.WriteHeader(http.StatusConflict)
+		w.Write([]byte(result.ShortURL))
 
-	h.auditPublisher.Publish(audit.NewEvent(audit.ActionShorten, u, &userID))
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	w.Write([]byte(result.ShortURL))
 }
