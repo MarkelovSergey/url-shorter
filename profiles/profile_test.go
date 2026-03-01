@@ -19,6 +19,7 @@ import (
 	"github.com/MarkelovSergey/url-shorter/internal/repository/urlshorterrepository"
 	"github.com/MarkelovSergey/url-shorter/internal/service/urlshorterservice"
 	"github.com/MarkelovSergey/url-shorter/internal/storage/memorystorage"
+	"github.com/MarkelovSergey/url-shorter/internal/usecase/urlcase"
 	"go.uber.org/zap"
 )
 
@@ -36,7 +37,7 @@ func setupHandler() Handler {
 	logger := zap.NewNop()
 	storage := memorystorage.New()
 	repo := urlshorterrepository.New(storage)
-	service := urlshorterservice.New(repo, nil, logger)
+	svc := urlshorterservice.New(repo, nil, logger)
 	cfg := config.Config{
 		Server: config.ServerConfig{
 			BaseURL: "http://localhost:8080",
@@ -44,8 +45,9 @@ func setupHandler() Handler {
 	}
 
 	auditPublisher := audit.NewPublisher(logger)
+	urlUseCase := urlcase.New(cfg.Server.BaseURL, svc, nil, auditPublisher)
 
-	h := handler.New(cfg, service, nil, logger, auditPublisher)
+	h := handler.New(cfg, urlUseCase, logger)
 	return h
 }
 

@@ -4,17 +4,13 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"strings"
 	"testing"
 
-	"github.com/MarkelovSergey/url-shorter/internal/audit"
 	"github.com/MarkelovSergey/url-shorter/internal/config"
 	"github.com/MarkelovSergey/url-shorter/internal/middleware"
 	"github.com/MarkelovSergey/url-shorter/internal/model"
-	"github.com/MarkelovSergey/url-shorter/internal/service"
-	"github.com/MarkelovSergey/url-shorter/internal/service/healthservice"
-	"github.com/MarkelovSergey/url-shorter/internal/service/urlshorterservice"
+	"github.com/MarkelovSergey/url-shorter/internal/usecase/urlcase"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"go.uber.org/zap"
@@ -35,19 +31,14 @@ func TestCreateAPIHandler(t *testing.T) {
 		false,
 	)
 	originalURL := "https://practicum.yandex.ru"
-	shortID := "test"
-
-	expectedShortURL, err := url.JoinPath(cfg.Server.BaseURL, shortID)
-	if err != nil {
-		t.Fatalf("Failed to join URL paths: %v", err)
-	}
+	expectedShortURL := "http://localhost:8080/test"
 
 	tests := []struct {
 		name           string
 		method         string
 		contentType    string
 		body           string
-		mockSetup      func(*urlshorterservice.MockURLShorterService)
+		mockSetup      func(*urlcase.MockURLUseCase)
 		expectedStatus int
 		expectedBody   string
 	}{
@@ -56,8 +47,9 @@ func TestCreateAPIHandler(t *testing.T) {
 			method:      http.MethodPost,
 			contentType: "application/json",
 			body:        `{"url":"https://practicum.yandex.ru"}`,
-			mockSetup: func(m *urlshorterservice.MockURLShorterService) {
-				m.EXPECT().Generate(mock.Anything, originalURL, mock.Anything).Return(shortID, nil)
+			mockSetup: func(m *urlcase.MockURLUseCase) {
+				m.EXPECT().Shorten(mock.Anything, originalURL, mock.Anything).
+					Return(urlcase.ShortenResult{ShortURL: expectedShortURL}, nil)
 			},
 			expectedStatus: http.StatusCreated,
 			expectedBody:   expectedShortURL,
@@ -67,7 +59,7 @@ func TestCreateAPIHandler(t *testing.T) {
 			method:         http.MethodPost,
 			contentType:    "text/plain",
 			body:           originalURL,
-			mockSetup:      func(m *urlshorterservice.MockURLShorterService) {},
+			mockSetup:      func(m *urlcase.MockURLUseCase) {},
 			expectedStatus: http.StatusBadRequest,
 			expectedBody:   "unsupported media type",
 		},
@@ -76,7 +68,7 @@ func TestCreateAPIHandler(t *testing.T) {
 			method:         http.MethodPost,
 			contentType:    "application/json",
 			body:           `{"url":}`,
-			mockSetup:      func(m *urlshorterservice.MockURLShorterService) {},
+			mockSetup:      func(m *urlcase.MockURLUseCase) {},
 			expectedStatus: http.StatusBadRequest,
 			expectedBody:   "error parsing JSON",
 		},
@@ -85,7 +77,7 @@ func TestCreateAPIHandler(t *testing.T) {
 			method:         http.MethodPost,
 			contentType:    "application/json",
 			body:           `{"url":"not-a-url"}`,
-			mockSetup:      func(m *urlshorterservice.MockURLShorterService) {},
+			mockSetup:      func(m *urlcase.MockURLUseCase) {},
 			expectedStatus: http.StatusBadRequest,
 			expectedBody:   "url not correct",
 		},
@@ -94,7 +86,7 @@ func TestCreateAPIHandler(t *testing.T) {
 			method:         http.MethodPost,
 			contentType:    "application/json",
 			body:           `{"url":"practicum.yandex.ru"}`,
-			mockSetup:      func(m *urlshorterservice.MockURLShorterService) {},
+			mockSetup:      func(m *urlcase.MockURLUseCase) {},
 			expectedStatus: http.StatusBadRequest,
 			expectedBody:   "url not correct",
 		},
@@ -103,8 +95,9 @@ func TestCreateAPIHandler(t *testing.T) {
 			method:      http.MethodPost,
 			contentType: "application/json",
 			body:        `{"url":"https://practicum.yandex.ru"}`,
-			mockSetup: func(m *urlshorterservice.MockURLShorterService) {
-				m.EXPECT().Generate(mock.Anything, originalURL, mock.Anything).Return(shortID, service.ErrURLConflict)
+			mockSetup: func(m *urlcase.MockURLUseCase) {
+				m.EXPECT().Shorten(mock.Anything, originalURL, mock.Anything).
+					Return(urlcase.ShortenResult{ShortURL: expectedShortURL, IsConflict: true}, nil)
 			},
 			expectedStatus: http.StatusConflict,
 			expectedBody:   expectedShortURL,
@@ -113,10 +106,9 @@ func TestCreateAPIHandler(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			mockURLShorterService := new(urlshorterservice.MockURLShorterService)
-			mockHealthService := new(healthservice.MockHealthService)
+			mockUseCase := new(urlcase.MockURLUseCase)
 
-			test.mockSetup(mockURLShorterService)
+			test.mockSetup(mockUseCase)
 
 			req := httptest.NewRequest(
 				test.method,
@@ -131,8 +123,7 @@ func TestCreateAPIHandler(t *testing.T) {
 
 			w := httptest.NewRecorder()
 
-			mockAuditPublisher := audit.NewMockPublisher()
-			h := New(cfg, mockURLShorterService, mockHealthService, logger, mockAuditPublisher)
+			h := New(cfg, mockUseCase, logger)
 			h.CreateAPIHandler(w, req)
 
 			assert.Equal(t, test.expectedStatus, w.Code)
@@ -147,7 +138,7 @@ func TestCreateAPIHandler(t *testing.T) {
 				assert.Equal(t, test.expectedBody, w.Body.String())
 			}
 
-			mockURLShorterService.AssertExpectations(t)
+			mockUseCase.AssertExpectations(t)
 		})
 	}
 }
